@@ -63,30 +63,177 @@ CREATE TABLE MaintenanceTicket (
 
 -- Queries (Examples) --
 
+-- Zone Queries
 getAllZones:
 SELECT * FROM Zone;
 
 insertZone:
 INSERT INTO Zone(name, description) VALUES (?, ?);
 
+updateZone:
+UPDATE Zone SET name = ?, description = ? WHERE id = ?;
+
+deleteZone:
+DELETE FROM Zone WHERE id = ?;
+
+getZoneById:
+SELECT * FROM Zone WHERE id = ?;
+
+-- Subscriber Queries
 getAllSubscribers:
 SELECT Subscriber.*, Zone.name AS zoneName 
 FROM Subscriber 
-LEFT JOIN Zone ON Subscriber.zoneId = Zone.id;
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+ORDER BY Subscriber.fullName;
+
+getSubscribersByZone:
+SELECT Subscriber.*, Zone.name AS zoneName 
+FROM Subscriber 
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+WHERE Subscriber.zoneId = ?
+ORDER BY Subscriber.fullName;
+
+searchSubscribers:
+SELECT Subscriber.*, Zone.name AS zoneName 
+FROM Subscriber 
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+WHERE Subscriber.fullName LIKE '%' || ? || '%' 
+   OR Subscriber.meterNumber LIKE '%' || ? || '%'
+   OR Subscriber.phone LIKE '%' || ? || '%'
+ORDER BY Subscriber.fullName;
+
+getSubscriberById:
+SELECT * FROM Subscriber WHERE id = ?;
 
 insertSubscriber:
 INSERT INTO Subscriber(fullName, phone, meterNumber, address, zoneId, isActive, createdAt) 
 VALUES (?, ?, ?, ?, ?, ?, ?);
 
-getSubscriberById:
-SELECT * FROM Subscriber WHERE id = ?;
+updateSubscriber:
+UPDATE Subscriber SET fullName = ?, phone = ?, meterNumber = ?, address = ?, zoneId = ?, isActive = ? WHERE id = ?;
+
+deleteSubscriber:
+DELETE FROM Subscriber WHERE id = ?;
+
+getSubscriberCount:
+SELECT COUNT(*) FROM Subscriber WHERE isActive = 1;
+
+-- Invoice Queries
+getAllInvoices:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+ORDER BY Invoice.issueDate DESC;
+
+getUnpaidInvoices:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+WHERE Invoice.status = 'UNPAID'
+ORDER BY Invoice.dueDate;
+
+getPaidInvoices:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+WHERE Invoice.status = 'PAID'
+ORDER BY Invoice.issueDate DESC;
+
+getInvoicesBySubscriber:
+SELECT * FROM Invoice WHERE subscriberId = ? ORDER BY issueDate DESC;
+
+getInvoiceById:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber, Subscriber.address, Zone.name AS zoneName
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+WHERE Invoice.id = ?;
+
+insertInvoice:
+INSERT INTO Invoice(subscriberId, previousReading, currentReading, consumption, totalAmount, status, issueDate, dueDate)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateInvoiceStatus:
+UPDATE Invoice SET status = ? WHERE id = ?;
+
+deleteInvoice:
+DELETE FROM Invoice WHERE id = ?;
+
+getTotalUnpaidAmount:
+SELECT COALESCE(SUM(totalAmount), 0) FROM Invoice WHERE status = 'UNPAID';
+
+getTotalConsumption:
+SELECT COALESCE(SUM(consumption), 0) FROM Invoice;
+
+getMonthlyConsumption:
+SELECT COALESCE(SUM(consumption), 0) FROM Invoice WHERE issueDate >= ? AND issueDate <= ?;
 
 -- Treasury Queries
 getAllTransactions:
 SELECT * FROM TransactionTable ORDER BY date DESC;
 
+getTransactionsByType:
+SELECT * FROM TransactionTable WHERE type = ? ORDER BY date DESC;
+
+insertTransaction:
+INSERT INTO TransactionTable(type, category, amount, description, date) VALUES (?, ?, ?, ?, ?);
+
+deleteTransaction:
+DELETE FROM TransactionTable WHERE id = ?;
+
 getTotalIncome:
-SELECT SUM(amount) FROM TransactionTable WHERE type = 'INCOME';
+SELECT COALESCE(SUM(amount), 0) FROM TransactionTable WHERE type = 'INCOME';
 
 getTotalExpenses:
-SELECT SUM(amount) FROM TransactionTable WHERE type = 'EXPENSE';
+SELECT COALESCE(SUM(amount), 0) FROM TransactionTable WHERE type = 'EXPENSE';
+
+getBalance:
+SELECT COALESCE(
+    (SELECT SUM(amount) FROM TransactionTable WHERE type = 'INCOME'), 0
+) - COALESCE(
+    (SELECT SUM(amount) FROM TransactionTable WHERE type = 'EXPENSE'), 0
+) AS balance;
+
+-- Maintenance Ticket Queries
+getAllMaintenanceTickets:
+SELECT MaintenanceTicket.*, Subscriber.fullName AS subscriberName
+FROM MaintenanceTicket
+LEFT JOIN Subscriber ON MaintenanceTicket.subscriberId = Subscriber.id
+ORDER BY MaintenanceTicket.reportedDate DESC;
+
+getTicketsByStatus:
+SELECT MaintenanceTicket.*, Subscriber.fullName AS subscriberName
+FROM MaintenanceTicket
+LEFT JOIN Subscriber ON MaintenanceTicket.subscriberId = Subscriber.id
+WHERE MaintenanceTicket.status = ?
+ORDER BY MaintenanceTicket.reportedDate DESC;
+
+getTicketById:
+SELECT MaintenanceTicket.*, Subscriber.fullName AS subscriberName
+FROM MaintenanceTicket
+LEFT JOIN Subscriber ON MaintenanceTicket.subscriberId = Subscriber.id
+WHERE MaintenanceTicket.id = ?;
+
+insertMaintenanceTicket:
+INSERT INTO MaintenanceTicket(subscriberId, issueType, description, status, reportedDate)
+VALUES (?, ?, ?, ?, ?);
+
+updateTicketStatus:
+UPDATE MaintenanceTicket SET status = ? WHERE id = ?;
+
+deleteTicket:
+DELETE FROM MaintenanceTicket WHERE id = ?;
+
+-- Pricing Tier Queries
+getAllPricingTiers:
+SELECT * FROM PricingTier ORDER BY minUsage;
+
+insertPricingTier:
+INSERT INTO PricingTier(minUsage, maxUsage, pricePerUnit) VALUES (?, ?, ?);
+
+updatePricingTier:
+UPDATE PricingTier SET minUsage = ?, maxUsage = ?, pricePerUnit = ? WHERE id = ?;
+
+deletePricingTier:
+DELETE FROM PricingTier WHERE id = ?;
+

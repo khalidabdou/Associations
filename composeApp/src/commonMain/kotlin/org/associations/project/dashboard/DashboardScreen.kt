@@ -3,8 +3,6 @@ package org.associations.project.dashboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -14,18 +12,20 @@ import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.associations.project.ui.Strings
 import org.koin.compose.viewmodel.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     onNavigateToMembers: () -> Unit,
@@ -35,56 +35,53 @@ fun DashboardScreen(
     val viewModel = koinViewModel<DashboardViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Associations Dashboard") },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            item {
-                Text(
-                    text = "Overview",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                StatsGrid(uiState)
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        if (uiState.isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                item {
+                    Text(
+                        text = Strings.dashboard,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-            item {
-                Text(
-                    text = "Quick Actions",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                QuickActionsRow(
-                    onAddReading = onNavigateToMeter,
-                    onNewPayment = onNavigateToBilling, // Assuming billing screen handles payments for now
-                    onAddMember = onNavigateToMembers // Assuming members screen handles adding
-                )
-            }
+                item {
+                    StatsGrid(uiState)
+                }
 
-            item {
-                Text(
-                    text = "Recent Activity",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                RecentActivityList(uiState.recentActivity)
+                item {
+                    Text(
+                        text = Strings.quickActions,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    QuickActionsRow(
+                        onAddReading = onNavigateToMeter,
+                        onNewPayment = onNavigateToBilling,
+                        onAddMember = onNavigateToMembers
+                    )
+                }
+
+                item {
+                    Text(
+                        text = Strings.recentActivity,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    RecentActivityList(uiState.recentActivity)
+                }
             }
         }
     }
@@ -95,15 +92,15 @@ fun StatsGrid(state: DashboardUiState) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StatsCard(
-                title = "Total Income",
-                value = "${state.totalIncome} Dhs",
+                title = Strings.totalIncome,
+                value = "${state.totalIncome} ${Strings.dhs}",
                 icon = Icons.Rounded.AttachMoney,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f)
             )
             StatsCard(
-                title = "Unpaid Bills",
-                value = "${state.totalUnpaid} Dhs",
+                title = Strings.unpaidInvoices,
+                value = "${state.totalUnpaid} ${Strings.dhs}",
                 icon = Icons.Rounded.Warning,
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.weight(1f)
@@ -111,15 +108,15 @@ fun StatsGrid(state: DashboardUiState) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             StatsCard(
-                title = "Members",
+                title = Strings.totalMembers,
                 value = "${state.totalMembers}",
                 icon = Icons.Rounded.Group,
                 color = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.weight(1f)
             )
             StatsCard(
-                title = "Consumption",
-                value = "${state.waterConsumption} Tons",
+                title = Strings.waterConsumption,
+                value = "${state.waterConsumption} ${Strings.tons}",
                 icon = Icons.Rounded.Opacity,
                 color = MaterialTheme.colorScheme.tertiary,
                 modifier = Modifier.weight(1f)
@@ -175,19 +172,19 @@ fun QuickActionsRow(
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         QuickActionButton(
-            text = "Add Reading",
+            text = Strings.addReading,
             icon = Icons.Default.Edit,
             onClick = onAddReading,
             modifier = Modifier.weight(1f)
         )
         QuickActionButton(
-            text = "New Payment",
+            text = Strings.newPayment,
             icon = Icons.Default.Payment,
             onClick = onNewPayment,
             modifier = Modifier.weight(1f)
         )
         QuickActionButton(
-            text = "Add Member",
+            text = Strings.addMember,
             icon = Icons.Default.PersonAdd,
             onClick = onAddMember,
             modifier = Modifier.weight(1f)

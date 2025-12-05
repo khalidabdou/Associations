@@ -12,9 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.database.GetAllSubscribers
+import org.associations.project.ui.Strings
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -41,43 +44,55 @@ fun SubscriberListScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Members") },
-                actions = {
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Header Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = Strings.membersList,
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Row {
                     IconButton(onClick = { showFilterDialog = true }) {
                         Badge(
-                            containerColor = if (selectedZoneFilter != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = if (selectedZoneFilter != null) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.surfaceVariant
                         ) {
-                            Icon(Icons.Default.FilterList, contentDescription = "Filter")
+                            Icon(Icons.Default.FilterList, contentDescription = Strings.filter)
                         }
                     }
+                    FloatingActionButton(
+                        onClick = onNavigateToEntry,
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = Strings.addMember)
+                    }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onNavigateToEntry) {
-                Icon(Icons.Default.Add, contentDescription = "Add Member")
             }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
+
             // Search Bar
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                placeholder = { Text("Search by name or meter number") },
+                    .padding(horizontal = 16.dp),
+                placeholder = { Text(Strings.searchMembers) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Subscribers List
             if (filteredSubscribers.isEmpty()) {
@@ -86,7 +101,7 @@ fun SubscriberListScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (subscribers.isEmpty()) "No members yet" else "No results found",
+                        text = if (subscribers.isEmpty()) Strings.noMembers else Strings.noMembers,
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -106,41 +121,41 @@ fun SubscriberListScreen(
                 }
             }
         }
-    }
 
-    // Filter Dialog
-    if (showFilterDialog) {
-        AlertDialog(
-            onDismissRequest = { showFilterDialog = false },
-            title = { Text("Filter by Zone") },
-            text = {
-                Column {
-                    TextButton(
-                        onClick = {
-                            selectedZoneFilter = null
-                            showFilterDialog = false
-                        }
-                    ) {
-                        Text("All Zones")
-                    }
-                    zones.forEach { zone ->
+        // Filter Dialog
+        if (showFilterDialog) {
+            AlertDialog(
+                onDismissRequest = { showFilterDialog = false },
+                title = { Text(Strings.selectZone) },
+                text = {
+                    Column {
                         TextButton(
                             onClick = {
-                                selectedZoneFilter = zone.id
+                                selectedZoneFilter = null
                                 showFilterDialog = false
                             }
                         ) {
-                            Text(zone.name)
+                            Text(Strings.allZones)
+                        }
+                        zones.forEach { zone ->
+                            TextButton(
+                                onClick = {
+                                    selectedZoneFilter = zone.id
+                                    showFilterDialog = false
+                                }
+                            ) {
+                                Text(zone.name)
+                            }
                         }
                     }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showFilterDialog = false }) {
+                        Text(Strings.close)
+                    }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showFilterDialog = false }) {
-                    Text("Close")
-                }
-            }
-        )
+            )
+        }
     }
 }
 
@@ -171,12 +186,12 @@ fun SubscriberCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Meter: ${subscriber.meterNumber}",
+                    text = "${Strings.meterNumber}: ${subscriber.meterNumber}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "Zone: ${subscriber.zoneName ?: "Unknown"}",
+                    text = "${Strings.zone}: ${subscriber.zoneName ?: "-"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -191,7 +206,7 @@ fun SubscriberCard(
                     MaterialTheme.colorScheme.errorContainer
             ) {
                 Text(
-                    text = if (subscriber.isActive == 1L) "Active" else "Inactive",
+                    text = if (subscriber.isActive == 1L) Strings.active else Strings.suspended,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (subscriber.isActive == 1L) 
@@ -203,3 +218,4 @@ fun SubscriberCard(
         }
     }
 }
+

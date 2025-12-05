@@ -34,23 +34,23 @@ fun NavGraph(navController: NavHostController) {
         }
         composable<Screen.SubscriberList> {
             SubscriberListScreen(
-                onNavigateToDetail = { id -> navController.navigate(Screen.SubscriberDetail(id)) },
+                onNavigateToDetail = { id -> navController.navigate(Screen.SubscriberDetail(id.toString())) },
                 onNavigateToEntry = { navController.navigate(Screen.SubscriberEntry()) }
             )
         }
         composable<Screen.SubscriberEntry> { backStackEntry ->
             val args = backStackEntry.toRoute<Screen.SubscriberEntry>()
             SubscriberEntryScreen(
-                subscriberId = args.id,
+                subscriberId = args.id?.toLongOrNull(),
                 onNavigateBack = { navController.popBackStack() }
             )
         }
         composable<Screen.SubscriberDetail> { backStackEntry ->
             val args = backStackEntry.toRoute<Screen.SubscriberDetail>()
             SubscriberDetailScreen(
-                subscriberId = args.id,
+                subscriberId = args.id.toLongOrNull() ?: 0L,
                 onNavigateBack = { navController.popBackStack() },
-                onNavigateToEdit = { id -> navController.navigate(Screen.SubscriberEntry(id)) }
+                onNavigateToEdit = { id -> navController.navigate(Screen.SubscriberEntry(id.toString())) }
             )
         }
         composable<Screen.MeterReading> {

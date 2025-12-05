@@ -1,0 +1,162 @@
+package org.associations.project.ui
+
+/**
+ * Arabic strings for the application
+ * النصوص العربية للتطبيق
+ */
+object Strings {
+    // App
+    const val appName = "إدارة جمعية الماء"
+    
+    // Navigation
+    const val navDashboard = "الرئيسية"
+    const val navMembers = "المشتركون"
+    const val navReadings = "القراءات"
+    const val navInvoices = "الفواتير"
+    const val navTreasury = "الخزينة"
+    const val navMaintenance = "الصيانة"
+    const val navSettings = "الإعدادات"
+    
+    // Common Actions
+    const val add = "إضافة"
+    const val edit = "تعديل"
+    const val delete = "حذف"
+    const val save = "حفظ"
+    const val cancel = "إلغاء"
+    const val search = "بحث"
+    const val filter = "تصفية"
+    const val back = "رجوع"
+    const val confirm = "تأكيد"
+    const val close = "إغلاق"
+    const val print = "طباعة"
+    const val export = "تصدير"
+    
+    // Dashboard
+    const val dashboard = "لوحة التحكم"
+    const val totalIncome = "إجمالي الدخل"
+    const val unpaidInvoices = "الفواتير غير المدفوعة"
+    const val totalMembers = "عدد المشتركين"
+    const val waterConsumption = "استهلاك الماء"
+    const val quickActions = "إجراءات سريعة"
+    const val addReading = "إضافة قراءة"
+    const val newPayment = "دفعة جديدة"
+    const val addMember = "إضافة مشترك"
+    const val recentActivity = "النشاط الأخير"
+    const val dhs = "درهم"
+    const val tons = "طن"
+    
+    // Members
+    const val members = "المشتركون"
+    const val membersList = "قائمة المشتركين"
+    const val addNewMember = "إضافة مشترك جديد"
+    const val editMember = "تعديل المشترك"
+    const val memberDetails = "تفاصيل المشترك"
+    const val fullName = "الاسم الكامل"
+    const val phone = "رقم الهاتف"
+    const val meterNumber = "رقم العداد"
+    const val address = "العنوان"
+    const val zone = "المنطقة"
+    const val selectZone = "اختر المنطقة"
+    const val status = "الحالة"
+    const val active = "نشط"
+    const val suspended = "موقوف"
+    const val createdAt = "تاريخ التسجيل"
+    const val allZones = "جميع المناطق"
+    const val noMembers = "لا يوجد مشتركون"
+    const val searchMembers = "البحث عن مشترك..."
+    
+    // Meter Readings
+    const val meterReadings = "قراءات العدادات"
+    const val addReadings = "إضافة قراءات"
+    const val readingsHistory = "سجل القراءات"
+    const val previousReading = "القراءة السابقة"
+    const val currentReading = "القراءة الحالية"
+    const val consumption = "الاستهلاك"
+    const val readingDate = "تاريخ القراءة"
+    const val enterReading = "أدخل القراءة"
+    const val saveReadings = "حفظ القراءات"
+    
+    // Invoices
+    const val invoices = "الفواتير"
+    const val invoicesList = "قائمة الفواتير"
+    const val invoiceDetails = "تفاصيل الفاتورة"
+    const val generateInvoices = "إنشاء الفواتير"
+    const val paid = "مدفوعة"
+    const val unpaid = "غير مدفوعة"
+    const val markAsPaid = "تحديد كمدفوعة"
+    const val totalAmount = "المبلغ الإجمالي"
+    const val issueDate = "تاريخ الإصدار"
+    const val dueDate = "تاريخ الاستحقاق"
+    const val pricingTiers = "شرائح التسعير"
+    const val noInvoices = "لا توجد فواتير"
+    
+    // Treasury
+    const val treasury = "الخزينة"
+    const val balance = "الرصيد"
+    const val income = "الدخل"
+    const val expenses = "المصروفات"
+    const val addIncome = "إضافة دخل"
+    const val addExpense = "إضافة مصروف"
+    const val transactionsList = "قائمة المعاملات"
+    const val amount = "المبلغ"
+    const val category = "الفئة"
+    const val description = "الوصف"
+    const val date = "التاريخ"
+    const val noTransactions = "لا توجد معاملات"
+    
+    // Categories
+    const val categoryBillPayment = "دفع فاتورة"
+    const val categoryMaintenance = "صيانة"
+    const val categorySalaries = "رواتب"
+    const val categorySupplies = "مستلزمات"
+    const val categoryOther = "أخرى"
+    
+    // Maintenance
+    const val maintenance = "الصيانة"
+    const val maintenanceTickets = "تذاكر الصيانة"
+    const val addTicket = "إضافة تذكرة"
+    const val ticketDetails = "تفاصيل التذكرة"
+    const val issueType = "نوع المشكلة"
+    const val priority = "الأولوية"
+    const val ticketStatus = "حالة التذكرة"
+    const val open = "مفتوحة"
+    const val inProgress = "قيد المعالجة"
+    const val resolved = "محلولة"
+    const val reportedDate = "تاريخ الإبلاغ"
+    const val noTickets = "لا توجد تذاكر"
+    
+    // Issue Types
+    const val issueLeak = "تسرب"
+    const val issueBrokenMeter = "عداد معطل"
+    const val issueBrokenPipe = "أنبوب مكسور"
+    const val issueOther = "أخرى"
+    
+    // Priority
+    const val priorityLow = "منخفضة"
+    const val priorityMedium = "متوسطة"
+    const val priorityHigh = "عالية"
+    
+    // Settings
+    const val settings = "الإعدادات"
+    const val associationProfile = "معلومات الجمعية"
+    const val associationName = "اسم الجمعية"
+    const val associationAddress = "عنوان الجمعية"
+    const val zoneManagement = "إدارة المناطق"
+    const val addZone = "إضافة منطقة"
+    const val zoneName = "اسم المنطقة"
+    const val zoneDescription = "وصف المنطقة"
+    const val pricingConfiguration = "إعدادات التسعير"
+    const val minUsage = "الحد الأدنى"
+    const val maxUsage = "الحد الأقصى"
+    const val pricePerUnit = "السعر للوحدة"
+    const val database = "قاعدة البيانات"
+    const val backup = "نسخ احتياطي"
+    const val restore = "استعادة"
+    
+    // Messages
+    const val confirmDelete = "هل أنت متأكد من الحذف؟"
+    const val savedSuccessfully = "تم الحفظ بنجاح"
+    const val deletedSuccessfully = "تم الحذف بنجاح"
+    const val errorOccurred = "حدث خطأ"
+    const val requiredField = "هذا الحقل مطلوب"
+}

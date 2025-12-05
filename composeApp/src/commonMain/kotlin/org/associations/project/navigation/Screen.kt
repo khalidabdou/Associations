@@ -10,10 +10,10 @@ sealed interface Screen {
     data object SubscriberList : Screen
 
     @Serializable
-    data class SubscriberEntry(val id: Long? = null) : Screen
+    data class SubscriberEntry(val id: String? = null) : Screen
 
     @Serializable
-    data class SubscriberDetail(val id: Long) : Screen
+    data class SubscriberDetail(val id: String = "") : Screen
 
     @Serializable
     data object MeterReading : Screen
@@ -25,7 +25,7 @@ sealed interface Screen {
     data object InvoicesList : Screen
 
     @Serializable
-    data class InvoiceDetail(val id: Long) : Screen
+    data class InvoiceDetail(val id: String = "") : Screen
 
     @Serializable
     data object Treasury : Screen
