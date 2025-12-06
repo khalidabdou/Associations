@@ -27,6 +27,8 @@ class AppRepository(db: AppDatabase) {
                 queries.insertPricingTier(6, 15, 8.0)
                 queries.insertPricingTier(16, 100, 12.0)
             }
+            // Ensure settings exist
+            queries.initSettings()
         } catch (e: Exception) {
             println("Database initialization error: ${e.message}")
         }
@@ -100,6 +102,18 @@ class AppRepository(db: AppDatabase) {
         return queries.getInvoicesBySubscriber(subscriberId).asFlow().mapToList(Dispatchers.IO)
     }
 
+    suspend fun getLatestInvoiceBySubscriber(subscriberId: Long): Invoice? {
+        return queries.getLatestInvoiceBySubscriber(subscriberId).executeAsOneOrNull()
+    }
+
+    suspend fun checkExistingInvoice(subscriberId: Long, startDate: Long, endDate: Long): Invoice? {
+        return queries.checkExistingInvoice(subscriberId, startDate, endDate).executeAsOneOrNull()
+    }
+
+    suspend fun updateInvoice(id: Long, currentReading: Long, consumption: Long, totalAmount: Double) {
+        queries.updateInvoice(currentReading, consumption, totalAmount, id)
+    }
+
     fun getInvoiceById(id: Long): Flow<GetInvoiceById?> {
         return queries.getInvoiceById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
     }
@@ -119,6 +133,10 @@ class AppRepository(db: AppDatabase) {
 
     suspend fun updateInvoiceStatus(id: Long, status: String) {
         queries.updateInvoiceStatus(status, id)
+    }
+
+    suspend fun getInvoiceDetailsOnce(id: Long): GetInvoiceById? {
+        return queries.getInvoiceById(id).executeAsOneOrNull()
     }
 
     suspend fun deleteInvoice(id: Long) {
@@ -205,12 +223,44 @@ class AppRepository(db: AppDatabase) {
         queries.deletePricingTier(id)
     }
 
+    // ===== App Settings Operations =====
+    fun getSettings(): Flow<AppSettings?> {
+        return queries.getSettings().asFlow().mapToOneOrNull(Dispatchers.IO)
+    }
+
+    suspend fun updateSettings(
+        lateFee: Double, 
+        monthlyFee: Double, 
+        gracePeriod: Int, 
+        dueDays: Int,
+        associationName: String,
+        associationAddress: String,
+        associationPhone: String,
+        printFormat: String,
+        logoPath: String?
+    ) {
+        queries.updateSettings(
+            lateFee, 
+            monthlyFee, 
+            gracePeriod.toLong(), 
+            dueDays.toLong(),
+            associationName,
+            associationAddress,
+            associationPhone,
+            printFormat,
+            logoPath
+        )
+    }
+
     // ===== Utility: Calculate Invoice Amount =====
     suspend fun calculateInvoiceAmount(consumption: Long): Double {
         val tiers = queries.getAllPricingTiers().executeAsList()
+        val settings = queries.getSettings().executeAsOneOrNull()
+        
         var remaining = consumption
         var total = 0.0
 
+        // 1. Calculate consumption cost based on tiers
         for (tier in tiers.sortedBy { it.minUsage }) {
             if (remaining <= 0) break
             val tierRange = tier.maxUsage - tier.minUsage + 1
@@ -218,7 +268,33 @@ class AppRepository(db: AppDatabase) {
             total += usedInTier * tier.pricePerUnit
             remaining -= usedInTier
         }
+        
+        // 2. Add Monthly Fixed Fee (if any)
+        settings?.let {
+            total += it.monthlyFixedFee
+        }
 
         return total
+    }
+
+    // ===== Advanced Queries =====
+    fun getTransactionsByMonth(month: Int, year: Int): Flow<List<TransactionTable>> {
+        // Calculate start and end timestamps for the month
+        // Note: Simple approximation, ideal solution would use kotlinx-datetime properly
+        // For now we rely on the ViewModel to pass correct timestamps or handle it here
+        // But since we store epoch millis, let's assume the VM passes start/end millis
+        return queries.getAllTransactions().asFlow().mapToList(Dispatchers.IO) // Placeholder for now, will implement properly
+    }
+    
+    fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<TransactionTable>> {
+        return queries.getAllTransactionsByMonth(startDate, endDate).asFlow().mapToList(Dispatchers.IO)
+    }
+
+    fun getInvoicesByDateRange(startDate: Long, endDate: Long): Flow<List<GetAllInvoicesByMonth>> {
+        return queries.getAllInvoicesByMonth(startDate, endDate).asFlow().mapToList(Dispatchers.IO)
+    }
+
+    suspend fun updateTransaction(id: Long, type: String, category: String, amount: Double, description: String?, date: Long) {
+        queries.updateTransaction(type, category, amount, description, date, id)
     }
 }

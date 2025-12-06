@@ -142,6 +142,12 @@ ORDER BY Invoice.issueDate DESC;
 getInvoicesBySubscriber:
 SELECT * FROM Invoice WHERE subscriberId = ? ORDER BY issueDate DESC;
 
+getLatestInvoiceBySubscriber:
+SELECT * FROM Invoice WHERE subscriberId = ? ORDER BY issueDate DESC LIMIT 1;
+
+checkExistingInvoice:
+SELECT * FROM Invoice WHERE subscriberId = ? AND issueDate >= ? AND issueDate <= ? LIMIT 1;
+
 getInvoiceById:
 SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber, Subscriber.address, Zone.name AS zoneName
 FROM Invoice 
@@ -152,6 +158,11 @@ WHERE Invoice.id = ?;
 insertInvoice:
 INSERT INTO Invoice(subscriberId, previousReading, currentReading, consumption, totalAmount, status, issueDate, dueDate)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+updateInvoice:
+UPDATE Invoice 
+SET currentReading = ?, consumption = ?, totalAmount = ?
+WHERE id = ?;
 
 updateInvoiceStatus:
 UPDATE Invoice SET status = ? WHERE id = ?;
@@ -237,3 +248,49 @@ UPDATE PricingTier SET minUsage = ?, maxUsage = ?, pricePerUnit = ? WHERE id = ?
 deletePricingTier:
 DELETE FROM PricingTier WHERE id = ?;
 
+
+-- 7. App Settings
+CREATE TABLE AppSettings (
+    id INTEGER NOT NULL PRIMARY KEY DEFAULT 1,
+    lateFeeAmount REAL NOT NULL DEFAULT 5.0,
+    monthlyFixedFee REAL NOT NULL DEFAULT 0.0,
+    gracePeriodDays INTEGER NOT NULL DEFAULT 15,
+    dueDateDays INTEGER NOT NULL DEFAULT 30,
+    associationName TEXT NOT NULL DEFAULT 'Water Association',
+    associationAddress TEXT NOT NULL DEFAULT '',
+    associationPhone TEXT NOT NULL DEFAULT '',
+    printFormat TEXT NOT NULL DEFAULT 'A4', -- 'A4' or 'RECEIPT'
+    logoPath TEXT DEFAULT NULL
+);
+
+initSettings:
+INSERT OR IGNORE INTO AppSettings(id, lateFeeAmount, monthlyFixedFee, gracePeriodDays, dueDateDays, associationName, associationAddress, associationPhone, printFormat, logoPath)
+VALUES (1, 5.0, 0.0, 15, 30, 'Water Association', '', '', 'A4', NULL);
+
+getSettings:
+SELECT * FROM AppSettings WHERE id = 1;
+
+updateSettings:
+UPDATE AppSettings 
+SET lateFeeAmount = ?, monthlyFixedFee = ?, gracePeriodDays = ?, dueDateDays = ?, 
+    associationName = ?, associationAddress = ?, associationPhone = ?, printFormat = ?, logoPath = ?
+WHERE id = 1;
+
+-- Updated Treasury Query with Month Filter
+getAllTransactionsByMonth:
+SELECT * FROM TransactionTable 
+WHERE date >= ? AND date <= ?
+ORDER BY date DESC;
+
+-- Updated Invoice Query with Month Filter
+getAllInvoicesByMonth:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Subscriber.meterNumber
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+WHERE Invoice.issueDate >= ? AND Invoice.issueDate <= ?
+ORDER BY Invoice.issueDate DESC;
+
+updateTransaction:
+UPDATE TransactionTable 
+SET type = ?, category = ?, amount = ?, description = ?, date = ? 
+WHERE id = ?;

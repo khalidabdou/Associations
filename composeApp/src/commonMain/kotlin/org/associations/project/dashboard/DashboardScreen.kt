@@ -99,7 +99,7 @@ fun StatsGrid(state: DashboardUiState) {
                 modifier = Modifier.weight(1f)
             )
             StatsCard(
-                title = Strings.unpaidInvoices,
+                title = Strings.unpaidAmount,
                 value = "${state.totalUnpaid} ${Strings.dhs}",
                 icon = Icons.Rounded.Warning,
                 color = MaterialTheme.colorScheme.error,
