@@ -90,7 +90,8 @@ class InvoicesViewModel(
                     totalAmount = details.totalAmount,
                     status = details.status,
                     issueDate = details.issueDate,
-                    dueDate = details.dueDate
+                    dueDate = details.dueDate,
+                    isPenaltyApplied = details.isPenaltyApplied
                 )
                 
                 val subscriberEntity = Subscriber(
@@ -122,7 +123,19 @@ class InvoicesViewModel(
     private val selectedMonthFlow = MutableStateFlow<MonthYear?>(null)
 
     init {
+        checkLateFees()
         loadInvoices()
+    }
+
+    private fun checkLateFees() {
+        viewModelScope.launch {
+            try {
+                repository.checkAndApplyLateFees()
+            } catch (e: Exception) {
+                // Log silently or show message if critical
+                println("Late fee check error: ${e.message}")
+            }
+        }
     }
 
     private fun loadInvoices() {

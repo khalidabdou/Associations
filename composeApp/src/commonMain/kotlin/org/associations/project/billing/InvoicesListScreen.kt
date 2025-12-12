@@ -203,7 +203,8 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             totalAmount = model.totalAmount,
                             status = model.status,
                             issueDate = model.issueDate,
-                            dueDate = model.dueOrPaidDate ?: 0
+                            dueDate = model.dueOrPaidDate ?: 0,
+                            isPenaltyApplied = 0
                         )
                         val mockSubscriber = Subscriber(
                             id = 0,

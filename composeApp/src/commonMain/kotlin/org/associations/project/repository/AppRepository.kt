@@ -68,12 +68,26 @@ class AppRepository(db: AppDatabase) {
         return queries.getSubscriberById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
     }
 
-    suspend fun insertSubscriber(fullName: String, phone: String?, meterNumber: String, address: String?, zoneId: Long) {
+    suspend fun insertSubscriber(
+            fullName: String,
+            phone: String?,
+            meterNumber: String,
+            address: String?,
+            zoneId: Long
+    ) {
         val createdAt = Clock.System.now().toEpochMilliseconds()
         queries.insertSubscriber(fullName, phone, meterNumber, address, zoneId, 1, createdAt)
     }
 
-    suspend fun updateSubscriber(id: Long, fullName: String, phone: String?, meterNumber: String, address: String?, zoneId: Long, isActive: Long) {
+    suspend fun updateSubscriber(
+            id: Long,
+            fullName: String,
+            phone: String?,
+            meterNumber: String,
+            address: String?,
+            zoneId: Long,
+            isActive: Long
+    ) {
         queries.updateSubscriber(fullName, phone, meterNumber, address, zoneId, isActive, id)
     }
 
@@ -106,11 +120,20 @@ class AppRepository(db: AppDatabase) {
         return queries.getLatestInvoiceBySubscriber(subscriberId).executeAsOneOrNull()
     }
 
+    suspend fun getLatestInvoiceBeforeDate(subscriberId: Long, date: Long): Invoice? {
+        return queries.getLatestInvoiceBeforeDate(subscriberId, date).executeAsOneOrNull()
+    }
+
     suspend fun checkExistingInvoice(subscriberId: Long, startDate: Long, endDate: Long): Invoice? {
         return queries.checkExistingInvoice(subscriberId, startDate, endDate).executeAsOneOrNull()
     }
 
-    suspend fun updateInvoice(id: Long, currentReading: Long, consumption: Long, totalAmount: Double) {
+    suspend fun updateInvoice(
+            id: Long,
+            currentReading: Long,
+            consumption: Long,
+            totalAmount: Double
+    ) {
         queries.updateInvoice(currentReading, consumption, totalAmount, id)
     }
 
@@ -119,16 +142,27 @@ class AppRepository(db: AppDatabase) {
     }
 
     suspend fun insertInvoice(
-        subscriberId: Long,
-        previousReading: Long,
-        currentReading: Long,
-        consumption: Long,
-        totalAmount: Double,
-        status: String,
-        issueDate: Long,
-        dueDate: Long
+            subscriberId: Long,
+            previousReading: Long,
+            currentReading: Long,
+            consumption: Long,
+            totalAmount: Double,
+            status: String,
+            issueDate: Long,
+            dueDate: Long,
+            isPenaltyApplied: Long = 0
     ) {
-        queries.insertInvoice(subscriberId, previousReading, currentReading, consumption, totalAmount, status, issueDate, dueDate)
+        queries.insertInvoice(
+                subscriberId,
+                previousReading,
+                currentReading,
+                consumption,
+                totalAmount,
+                status,
+                issueDate,
+                dueDate,
+                isPenaltyApplied
+        )
     }
 
     suspend fun updateInvoiceStatus(id: Long, status: String) {
@@ -144,11 +178,15 @@ class AppRepository(db: AppDatabase) {
     }
 
     fun getTotalUnpaidAmount(): Flow<Double> {
-        return queries.getTotalUnpaidAmount().asFlow().mapToOneOrNull(Dispatchers.IO).map { it ?: 0.0 }
+        return queries.getTotalUnpaidAmount().asFlow().mapToOneOrNull(Dispatchers.IO).map {
+            it ?: 0.0
+        }
     }
 
     fun getTotalConsumption(): Flow<Long> {
-        return queries.getTotalConsumption().asFlow().mapToOneOrNull(Dispatchers.IO).map { it ?: 0L }
+        return queries.getTotalConsumption().asFlow().mapToOneOrNull(Dispatchers.IO).map {
+            it ?: 0L
+        }
     }
 
     // ===== Transaction Operations =====
@@ -160,7 +198,13 @@ class AppRepository(db: AppDatabase) {
         return queries.getTransactionsByType(type).asFlow().mapToList(Dispatchers.IO)
     }
 
-    suspend fun insertTransaction(type: String, category: String, amount: Double, description: String?, date: Long) {
+    suspend fun insertTransaction(
+            type: String,
+            category: String,
+            amount: Double,
+            description: String?,
+            date: Long
+    ) {
         queries.insertTransaction(type, category, amount, description, date)
     }
 
@@ -193,7 +237,12 @@ class AppRepository(db: AppDatabase) {
         return queries.getTicketById(id).asFlow().mapToOneOrNull(Dispatchers.IO)
     }
 
-    suspend fun insertMaintenanceTicket(subscriberId: Long?, issueType: String, description: String?, status: String) {
+    suspend fun insertMaintenanceTicket(
+            subscriberId: Long?,
+            issueType: String,
+            description: String?,
+            status: String
+    ) {
         val reportedDate = Clock.System.now().toEpochMilliseconds()
         queries.insertMaintenanceTicket(subscriberId, issueType, description, status, reportedDate)
     }
@@ -229,52 +278,76 @@ class AppRepository(db: AppDatabase) {
     }
 
     suspend fun updateSettings(
-        lateFee: Double, 
-        monthlyFee: Double, 
-        gracePeriod: Int, 
-        dueDays: Int,
-        associationName: String,
-        associationAddress: String,
-        associationPhone: String,
-        printFormat: String,
-        logoPath: String?
+            lateFee: Double,
+            monthlyFee: Double,
+            gracePeriod: Int,
+            dueDays: Int,
+            associationName: String,
+            associationAddress: String,
+            associationPhone: String,
+            printFormat: String,
+            logoPath: String?
     ) {
         queries.updateSettings(
-            lateFee, 
-            monthlyFee, 
-            gracePeriod.toLong(), 
-            dueDays.toLong(),
-            associationName,
-            associationAddress,
-            associationPhone,
-            printFormat,
-            logoPath
+                lateFee,
+                monthlyFee,
+                gracePeriod.toLong(),
+                dueDays.toLong(),
+                associationName,
+                associationAddress,
+                associationPhone,
+                printFormat,
+                logoPath
         )
     }
 
     // ===== Utility: Calculate Invoice Amount =====
     suspend fun calculateInvoiceAmount(consumption: Long): Double {
-        val tiers = queries.getAllPricingTiers().executeAsList()
+        val tiers = queries.getAllPricingTiers().executeAsList().sortedBy { it.minUsage }
         val settings = queries.getSettings().executeAsOneOrNull()
-        
-        var remaining = consumption
+
         var total = 0.0
 
-        // 1. Calculate consumption cost based on tiers
-        for (tier in tiers.sortedBy { it.minUsage }) {
-            if (remaining <= 0) break
-            val tierRange = tier.maxUsage - tier.minUsage + 1
-            val usedInTier = minOf(remaining, tierRange)
-            total += usedInTier * tier.pricePerUnit
-            remaining -= usedInTier
-        }
-        
-        // 2. Add Monthly Fixed Fee (if any)
-        settings?.let {
-            total += it.monthlyFixedFee
+        // Find the applicable tier for the TOTAL consumption
+        // Example: If consumption is 10, and tiers are 0-5(5dh), 6-15(8dh).
+        // 10 falls in 6-15, so total = 10 * 8.
+
+        if (tiers.isNotEmpty()) {
+            val applicableTier =
+                    tiers.find { consumption in it.minUsage..it.maxUsage }
+                            ?: tiers.lastOrNull {
+                                consumption > it.maxUsage
+                            } // Use highest tier if exceeds range
+                             ?: tiers.first() // Should not happen if tiers start at 0
+
+            total = consumption * applicableTier.pricePerUnit
         }
 
+        // Add Monthly Fixed Fee (if any)
+        settings?.let { total += it.monthlyFixedFee }
+
         return total
+    }
+
+    suspend fun checkAndApplyLateFees() {
+        val settings = queries.getSettings().executeAsOneOrNull() ?: return
+        if (settings.lateFeeAmount <= 0.0) return
+
+        val unpaidInvoices = queries.getUnpaidInvoices().executeAsList()
+        val currentTime = Clock.System.now().toEpochMilliseconds()
+
+        unpaidInvoices.forEach { invoice ->
+            // Check if due date passed and penalty not applied
+            // Note: getAllInvoices query result (GetUnpaidInvoices) now includes isPenaltyApplied?
+            // Yes, "SELECT Invoice.* ..." includes checks.
+            // BUT SQLDelight might generate a specific data class GetUnpaidInvoices that contains
+            // the columns.
+            // Since we added column to table, it should be there.
+
+            if (invoice.isPenaltyApplied == 0L && currentTime > invoice.dueDate) {
+                queries.applyPenalty(settings.lateFeeAmount, invoice.id)
+            }
+        }
     }
 
     // ===== Advanced Queries =====
@@ -283,18 +356,46 @@ class AppRepository(db: AppDatabase) {
         // Note: Simple approximation, ideal solution would use kotlinx-datetime properly
         // For now we rely on the ViewModel to pass correct timestamps or handle it here
         // But since we store epoch millis, let's assume the VM passes start/end millis
-        return queries.getAllTransactions().asFlow().mapToList(Dispatchers.IO) // Placeholder for now, will implement properly
+        return queries.getAllTransactions()
+                .asFlow()
+                .mapToList(Dispatchers.IO) // Placeholder for now, will implement properly
     }
-    
+
     fun getTransactionsByDateRange(startDate: Long, endDate: Long): Flow<List<TransactionTable>> {
-        return queries.getAllTransactionsByMonth(startDate, endDate).asFlow().mapToList(Dispatchers.IO)
+        return queries.getAllTransactionsByMonth(startDate, endDate)
+                .asFlow()
+                .mapToList(Dispatchers.IO)
     }
 
     fun getInvoicesByDateRange(startDate: Long, endDate: Long): Flow<List<GetAllInvoicesByMonth>> {
         return queries.getAllInvoicesByMonth(startDate, endDate).asFlow().mapToList(Dispatchers.IO)
     }
 
-    suspend fun updateTransaction(id: Long, type: String, category: String, amount: Double, description: String?, date: Long) {
+    suspend fun updateTransaction(
+            id: Long,
+            type: String,
+            category: String,
+            amount: Double,
+            description: String?,
+            date: Long
+    ) {
         queries.updateTransaction(type, category, amount, description, date, id)
+    }
+
+    // ===== Recent Activity Operations for Dashboard =====
+    fun getRecentPaidInvoices(): Flow<List<GetRecentPaidInvoices>> {
+        return queries.getRecentPaidInvoices().asFlow().mapToList(Dispatchers.IO)
+    }
+
+    fun getRecentSubscribers(): Flow<List<GetRecentSubscribers>> {
+        return queries.getRecentSubscribers().asFlow().mapToList(Dispatchers.IO)
+    }
+
+    fun getRecentInvoices(): Flow<List<GetRecentInvoices>> {
+        return queries.getRecentInvoices().asFlow().mapToList(Dispatchers.IO)
+    }
+
+    fun getRecentTransactions(): Flow<List<TransactionTable>> {
+        return queries.getRecentTransactions().asFlow().mapToList(Dispatchers.IO)
     }
 }

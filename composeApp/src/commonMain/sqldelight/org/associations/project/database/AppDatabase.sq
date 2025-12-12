@@ -37,6 +37,7 @@ CREATE TABLE Invoice (
     status TEXT NOT NULL, -- 'PAID', 'UNPAID'
     issueDate INTEGER NOT NULL,
     dueDate INTEGER NOT NULL,
+    isPenaltyApplied INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
     FOREIGN KEY (subscriberId) REFERENCES Subscriber(id)
 );
 
@@ -145,6 +146,9 @@ SELECT * FROM Invoice WHERE subscriberId = ? ORDER BY issueDate DESC;
 getLatestInvoiceBySubscriber:
 SELECT * FROM Invoice WHERE subscriberId = ? ORDER BY issueDate DESC LIMIT 1;
 
+getLatestInvoiceBeforeDate:
+SELECT * FROM Invoice WHERE subscriberId = ? AND issueDate < ? ORDER BY issueDate DESC LIMIT 1;
+
 checkExistingInvoice:
 SELECT * FROM Invoice WHERE subscriberId = ? AND issueDate >= ? AND issueDate <= ? LIMIT 1;
 
@@ -156,8 +160,8 @@ LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
 WHERE Invoice.id = ?;
 
 insertInvoice:
-INSERT INTO Invoice(subscriberId, previousReading, currentReading, consumption, totalAmount, status, issueDate, dueDate)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO Invoice(subscriberId, previousReading, currentReading, consumption, totalAmount, status, issueDate, dueDate, isPenaltyApplied)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateInvoice:
 UPDATE Invoice 
@@ -166,6 +170,9 @@ WHERE id = ?;
 
 updateInvoiceStatus:
 UPDATE Invoice SET status = ? WHERE id = ?;
+
+applyPenalty:
+UPDATE Invoice SET totalAmount = totalAmount + ?, isPenaltyApplied = 1 WHERE id = ?;
 
 deleteInvoice:
 DELETE FROM Invoice WHERE id = ?;
@@ -294,3 +301,32 @@ updateTransaction:
 UPDATE TransactionTable 
 SET type = ?, category = ?, amount = ?, description = ?, date = ? 
 WHERE id = ?;
+
+-- Recent Activity Queries for Dashboard
+getRecentPaidInvoices:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName, Zone.name AS zoneName
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+WHERE Invoice.status = 'PAID'
+ORDER BY Invoice.issueDate DESC
+LIMIT 5;
+
+getRecentSubscribers:
+SELECT Subscriber.*, Zone.name AS zoneName 
+FROM Subscriber 
+LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
+ORDER BY Subscriber.createdAt DESC
+LIMIT 5;
+
+getRecentInvoices:
+SELECT Invoice.*, Subscriber.fullName AS subscriberName
+FROM Invoice 
+LEFT JOIN Subscriber ON Invoice.subscriberId = Subscriber.id
+ORDER BY Invoice.issueDate DESC
+LIMIT 5;
+
+getRecentTransactions:
+SELECT * FROM TransactionTable 
+ORDER BY date DESC
+LIMIT 5;
