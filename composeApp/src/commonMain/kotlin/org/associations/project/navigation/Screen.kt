@@ -4,6 +4,9 @@ import kotlinx.serialization.Serializable
 
 sealed interface Screen {
     @Serializable
+    data object Activation : Screen
+
+    @Serializable
     data object Dashboard : Screen
 
     @Serializable

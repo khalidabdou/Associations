@@ -1,27 +1,29 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    // alias(libs.plugins.composeHotReload) // Temporarily disabled due to compiler compatibility issues
+    // alias(libs.plugins.composeHotReload)
     alias(libs.plugins.sqldelight)
     kotlin("plugin.serialization") version "2.0.20"
 }
 
 kotlin {
+    jvmToolchain(17)
+
     androidTarget()
-    
+
     jvm("desktop")
-    
+
     sourceSets {
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
             implementation(libs.sqldelight.android.driver)
             implementation(libs.koin.android)
+            implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -41,15 +43,20 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
+            
+            // Licensing Dependencies
+            implementation(libs.supabase.postgrest)
+            implementation(libs.multiplatform.settings)
+            implementation(libs.ktor.client.core)
         }
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
+        commonTest.dependencies { implementation(libs.kotlin.test) }
         val desktopMain by getting
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
             implementation(libs.sqldelight.sqlite.driver)
+            implementation(libs.ktor.client.cio)
+            implementation("com.russhwolf:multiplatform-settings-no-arg:1.2.0")
         }
     }
 }
@@ -65,25 +72,15 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-        }
-    }
+    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    buildTypes { getByName("release") { isMinifyEnabled = false } }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }
 
-dependencies {
-    debugImplementation(compose.uiTooling)
-}
+dependencies { debugImplementation(compose.uiTooling) }
 
 compose.desktop {
     application {
@@ -98,9 +95,5 @@ compose.desktop {
 }
 
 sqldelight {
-    databases {
-        create("AppDatabase") {
-            packageName.set("org.associations.project.database")
-        }
-    }
+    databases { create("AppDatabase") { packageName.set("org.associations.project.database") } }
 }

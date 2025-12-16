@@ -20,7 +20,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onNavigateBack: () -> Unit) {
+fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Unit)? = null) {
     val viewModel = koinViewModel<SettingsViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -200,6 +200,18 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
                                         value = "${uiState.dueDateDays}",
                                         onEdit = { viewModel.showEditDialog("dueDate") }
                                 )
+                            }
+                        }
+                    }
+
+                    // License Activation Section
+                    item {
+                        SettingsSection(title = "تفعيل التطبيق", icon = Icons.Default.VpnKey) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Button(
+                                        onClick = { onNavigateToActivation?.invoke() },
+                                        modifier = Modifier.fillMaxWidth()
+                                ) { Text("تفعيل الرخصة") }
                             }
                         }
                     }

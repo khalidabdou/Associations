@@ -37,10 +37,17 @@ import org.associations.project.meter.MeterReadingScreen
 import org.associations.project.settings.SettingsScreen
 import org.associations.project.treasury.TreasuryScreen
 import org.associations.project.ui.Strings
+import org.associations.project.ui.activation.ActivationScreen
 
 @Composable
-fun NavGraph(navController: NavHostController) {
-    NavHost(navController = navController, startDestination = Screen.Dashboard) {
+fun NavGraph(
+        navController: NavHostController,
+        startDestination: Screen = Screen.Dashboard // Allow overriding start destination
+) {
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable<Screen.Activation> {
+            ActivationScreen(onNavigateToDashboard = { navController.popBackStack() })
+        }
         composable<Screen.Dashboard> {
             DashboardScreen(
                     onNavigateToMembers = { navController.navigate(Screen.SubscriberList) },
@@ -90,7 +97,10 @@ fun NavGraph(navController: NavHostController) {
         composable<Screen.MaintenanceList> { PlaceholderScreen(title = Strings.maintenanceTickets) }
         composable<Screen.AddTicket> { PlaceholderScreen(title = Strings.addTicket) }
         composable<Screen.Settings> {
-            SettingsScreen(onNavigateBack = { navController.popBackStack() })
+            SettingsScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToActivation = { navController.navigate(Screen.Activation) }
+            )
         }
     }
 }
