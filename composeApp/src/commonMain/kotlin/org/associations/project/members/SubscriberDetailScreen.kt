@@ -16,6 +16,7 @@ import kotlinx.datetime.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.associations.project.database.Invoice
+import org.associations.project.ui.Strings
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,15 +38,15 @@ fun SubscriberDetailScreen(
     Scaffold(
             topBar = {
                 TopAppBar(
-                        title = { Text("Member Details") },
+                        title = { Text(Strings.memberDetails) },
                         navigationIcon = {
                             IconButton(onClick = onNavigateBack) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                                Icon(Icons.Default.ArrowBack, contentDescription = Strings.back)
                             }
                         },
                         actions = {
                             IconButton(onClick = { onNavigateToEdit(subscriberId) }) {
-                                Icon(Icons.Default.Edit, contentDescription = "Edit")
+                                Icon(Icons.Default.Edit, contentDescription = Strings.edit)
                             }
                         }
                 )
@@ -55,7 +56,7 @@ fun SubscriberDetailScreen(
             Box(
                     modifier = Modifier.fillMaxSize().padding(padding),
                     contentAlignment = androidx.compose.ui.Alignment.Center
-            ) { Text("Member not found") }
+            ) { Text("لم يتم العثور على المشترك") }
         } else {
             Column(
                     modifier =
@@ -87,7 +88,10 @@ fun SubscriberDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(text = "Status:", style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                    text = "${Strings.status}:",
+                                    style = MaterialTheme.typography.bodyMedium
+                            )
                             Surface(
                                     shape = MaterialTheme.shapes.small,
                                     color =
@@ -97,8 +101,8 @@ fun SubscriberDetailScreen(
                             ) {
                                 Text(
                                         text =
-                                                if (subscriber.isActive == 1L) "Active"
-                                                else "Inactive",
+                                                if (subscriber.isActive == 1L) Strings.active
+                                                else Strings.suspended,
                                         modifier =
                                                 Modifier.padding(
                                                         horizontal = 8.dp,
@@ -114,7 +118,7 @@ fun SubscriberDetailScreen(
 
                 // Information Section
                 Text(
-                        text = "Information",
+                        text = "المعلومات",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                 )
@@ -124,16 +128,16 @@ fun SubscriberDetailScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        InfoRow("Meter Number", subscriber.meterNumber)
-                        InfoRow("Phone", subscriber.phone ?: "N/A")
-                        InfoRow("Address", subscriber.address ?: "N/A")
-                        InfoRow("Zone", subscriber.zoneName ?: "Unknown")
+                        InfoRow(Strings.meterNumber, subscriber.meterNumber)
+                        InfoRow(Strings.phone, subscriber.phone ?: "-")
+                        InfoRow(Strings.address, subscriber.address ?: "-")
+                        InfoRow(Strings.zone, subscriber.zoneName ?: "-")
                     }
                 }
 
                 // Reading History Section
                 Text(
-                        text = "Reading History",
+                        text = "سجل القراءات",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                 )
@@ -145,7 +149,7 @@ fun SubscriberDetailScreen(
                                 contentAlignment = androidx.compose.ui.Alignment.Center
                         ) {
                             Text(
-                                    text = "No readings yet",
+                                    text = "لا توجد قراءات بعد",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -169,7 +173,7 @@ fun SubscriberDetailScreen(
 
                 // Invoice History Section
                 Text(
-                        text = "Invoice History",
+                        text = "سجل الفواتير",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold
                 )
@@ -181,7 +185,7 @@ fun SubscriberDetailScreen(
                                 contentAlignment = androidx.compose.ui.Alignment.Center
                         ) {
                             Text(
-                                    text = "No invoices yet",
+                                    text = "لا توجد فواتير بعد",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

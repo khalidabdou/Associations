@@ -17,105 +17,109 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.database.GetAllSubscribers
+import org.associations.project.repository.LicenseRepository
 import org.associations.project.ui.Strings
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+
+private const val MAX_MEMBERS_UNACTIVATED = 5
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubscriberListScreen(
-    onNavigateToDetail: (Long) -> Unit,
-    onNavigateToEntry: () -> Unit
-) {
+fun SubscriberListScreen(onNavigateToDetail: (Long) -> Unit, onNavigateToEntry: () -> Unit) {
     val viewModel = koinViewModel<MembersViewModel>()
+    val licenseRepository: LicenseRepository = koinInject()
+
     val subscribers by viewModel.subscribers.collectAsStateWithLifecycle()
     val zones by viewModel.zones.collectAsStateWithLifecycle()
-    
+
+    val isActivated = licenseRepository.isActivated()
+    val canAddMember = isActivated || subscribers.size < MAX_MEMBERS_UNACTIVATED
+
     var searchQuery by remember { mutableStateOf("") }
     var selectedZoneFilter by remember { mutableStateOf<Long?>(null) }
     var showFilterDialog by remember { mutableStateOf(false) }
+    var showLimitDialog by remember { mutableStateOf(false) }
 
-    val filteredSubscribers = remember(subscribers, searchQuery, selectedZoneFilter) {
-        subscribers.filter { subscriber ->
-            val matchesSearch = searchQuery.isEmpty() || 
-                subscriber.fullName.contains(searchQuery, ignoreCase = true) ||
-                subscriber.meterNumber.contains(searchQuery, ignoreCase = true)
-            val matchesZone = selectedZoneFilter == null || subscriber.zoneId == selectedZoneFilter
-            matchesSearch && matchesZone
-        }
-    }
+    val filteredSubscribers =
+            remember(subscribers, searchQuery, selectedZoneFilter) {
+                subscribers.filter { subscriber ->
+                    val matchesSearch =
+                            searchQuery.isEmpty() ||
+                                    subscriber.fullName.contains(searchQuery, ignoreCase = true) ||
+                                    subscriber.meterNumber.contains(searchQuery, ignoreCase = true)
+                    val matchesZone =
+                            selectedZoneFilter == null || subscriber.zoneId == selectedZoneFilter
+                    matchesSearch && matchesZone
+                }
+            }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             // Header Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = Strings.membersList,
-                    style = MaterialTheme.typography.headlineSmall
-                )
+                Text(text = Strings.membersList, style = MaterialTheme.typography.headlineSmall)
                 Row {
                     IconButton(onClick = { showFilterDialog = true }) {
                         Badge(
-                            containerColor = if (selectedZoneFilter != null) 
-                                MaterialTheme.colorScheme.primary 
-                            else 
-                                MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Icon(Icons.Default.FilterList, contentDescription = Strings.filter)
-                        }
+                                containerColor =
+                                        if (selectedZoneFilter != null)
+                                                MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.surfaceVariant
+                        ) { Icon(Icons.Default.FilterList, contentDescription = Strings.filter) }
                     }
                     FloatingActionButton(
-                        onClick = onNavigateToEntry,
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = Strings.addMember)
-                    }
+                            onClick = {
+                                if (canAddMember) {
+                                    onNavigateToEntry()
+                                } else {
+                                    showLimitDialog = true
+                                }
+                            },
+                            containerColor =
+                                    if (canAddMember) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                    ) { Icon(Icons.Default.Add, contentDescription = Strings.addMember) }
                 }
             }
 
             // Search Bar
             OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                placeholder = { Text(Strings.searchMembers) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    placeholder = { Text(Strings.searchMembers) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    singleLine = true
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // Subscribers List
             if (filteredSubscribers.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = if (subscribers.isEmpty()) Strings.noMembers else Strings.noMembers,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            text =
+                                    if (subscribers.isEmpty()) Strings.noMembers
+                                    else Strings.noMembers,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(filteredSubscribers, key = { it.id }) { subscriber ->
                         SubscriberCard(
-                            subscriber = subscriber,
-                            onClick = { onNavigateToDetail(subscriber.id) }
+                                subscriber = subscriber,
+                                onClick = { onNavigateToDetail(subscriber.id) }
                         )
                     }
                 }
@@ -125,97 +129,97 @@ fun SubscriberListScreen(
         // Filter Dialog
         if (showFilterDialog) {
             AlertDialog(
-                onDismissRequest = { showFilterDialog = false },
-                title = { Text(Strings.selectZone) },
-                text = {
-                    Column {
-                        TextButton(
-                            onClick = {
-                                selectedZoneFilter = null
-                                showFilterDialog = false
-                            }
-                        ) {
-                            Text(Strings.allZones)
-                        }
-                        zones.forEach { zone ->
+                    onDismissRequest = { showFilterDialog = false },
+                    title = { Text(Strings.selectZone) },
+                    text = {
+                        Column {
                             TextButton(
-                                onClick = {
-                                    selectedZoneFilter = zone.id
-                                    showFilterDialog = false
-                                }
-                            ) {
-                                Text(zone.name)
+                                    onClick = {
+                                        selectedZoneFilter = null
+                                        showFilterDialog = false
+                                    }
+                            ) { Text(Strings.allZones) }
+                            zones.forEach { zone ->
+                                TextButton(
+                                        onClick = {
+                                            selectedZoneFilter = zone.id
+                                            showFilterDialog = false
+                                        }
+                                ) { Text(zone.name) }
                             }
                         }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showFilterDialog = false }) { Text(Strings.close) }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showFilterDialog = false }) {
-                        Text(Strings.close)
+            )
+        }
+
+        // Member limit dialog for non-activated apps
+        if (showLimitDialog) {
+            AlertDialog(
+                    onDismissRequest = { showLimitDialog = false },
+                    title = { Text("تم الوصول للحد الأقصى") },
+                    text = {
+                        Text(
+                                "يمكنك إضافة $MAX_MEMBERS_UNACTIVATED مشتركين فقط في النسخة التجريبية. يرجى تفعيل التطبيق لإضافة المزيد."
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showLimitDialog = false }) { Text(Strings.close) }
                     }
-                }
             )
         }
     }
 }
 
 @Composable
-fun SubscriberCard(
-    subscriber: GetAllSubscribers,
-    onClick: () -> Unit
-) {
+fun SubscriberCard(subscriber: GetAllSubscribers, onClick: () -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+            colors =
+                    CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = subscriber.fullName,
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Text(text = subscriber.fullName, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${Strings.meterNumber}: ${subscriber.meterNumber}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${Strings.meterNumber}: ${subscriber.meterNumber}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "${Strings.zone}: ${subscriber.zoneName ?: "-"}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "${Strings.zone}: ${subscriber.zoneName ?: "-"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            
+
             // Status Badge
             Surface(
-                shape = MaterialTheme.shapes.small,
-                color = if (subscriber.isActive == 1L) 
-                    MaterialTheme.colorScheme.primaryContainer 
-                else 
-                    MaterialTheme.colorScheme.errorContainer
+                    shape = MaterialTheme.shapes.small,
+                    color =
+                            if (subscriber.isActive == 1L)
+                                    MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.errorContainer
             ) {
                 Text(
-                    text = if (subscriber.isActive == 1L) Strings.active else Strings.suspended,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (subscriber.isActive == 1L) 
-                        MaterialTheme.colorScheme.onPrimaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.onErrorContainer
+                        text = if (subscriber.isActive == 1L) Strings.active else Strings.suspended,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color =
+                                if (subscriber.isActive == 1L)
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onErrorContainer
                 )
             }
         }
     }
 }
-

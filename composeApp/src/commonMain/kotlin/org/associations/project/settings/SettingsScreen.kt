@@ -204,14 +204,16 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                         }
                     }
 
-                    // License Activation Section
-                    item {
-                        SettingsSection(title = "تفعيل التطبيق", icon = Icons.Default.VpnKey) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Button(
-                                        onClick = { onNavigateToActivation?.invoke() },
-                                        modifier = Modifier.fillMaxWidth()
-                                ) { Text("تفعيل الرخصة") }
+                    // License Activation Section - only show if not activated
+                    if (!uiState.isActivated) {
+                        item {
+                            SettingsSection(title = "تفعيل التطبيق", icon = Icons.Default.VpnKey) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Button(
+                                            onClick = { onNavigateToActivation?.invoke() },
+                                            modifier = Modifier.fillMaxWidth()
+                                    ) { Text("تفعيل الرخصة") }
+                                }
                             }
                         }
                     }

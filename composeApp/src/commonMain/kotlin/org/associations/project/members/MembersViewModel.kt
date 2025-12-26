@@ -46,4 +46,18 @@ class MembersViewModel(private val repository: AppRepository) : ViewModel() {
             repository.insertSubscriber(fullName, phone, meterNumber, address, zoneId)
         }
     }
+
+    fun updateSubscriber(
+            id: Long,
+            fullName: String,
+            phone: String?,
+            meterNumber: String,
+            address: String?,
+            zoneId: Long,
+            isActive: Long
+    ) {
+        viewModelScope.launch {
+            repository.updateSubscriber(id, fullName, phone, meterNumber, address, zoneId, isActive)
+        }
+    }
 }
