@@ -17,20 +17,20 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.ui.Strings
-import org.koin.compose.viewmodel.koinViewModel
 import org.associations.project.utils.MonthYear
+import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MeterReadingScreen(onNavigateBack: () -> Unit) {
     val viewModel = koinViewModel<MeterReadingViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
     var zoneExpanded by remember { mutableStateOf(false) }
     var monthExpanded by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -39,102 +39,116 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
     }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
-        ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp)
-            ) {
+        Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+            Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
                 // Header Row with Title and Edit Button
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = Strings.addReadings,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
+                            text = Strings.addReadings,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
                     )
-                    
+
                     // Edit Mode Toggle
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (uiState.isCurrentMonth) {
                             FilledTonalButton(
-                                onClick = { viewModel.toggleEditMode() },
-                                colors = if (uiState.isEditMode) 
-                                    ButtonDefaults.filledTonalButtonColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                                    )
-                                else ButtonDefaults.filledTonalButtonColors()
+                                    onClick = { viewModel.toggleEditMode() },
+                                    colors =
+                                            if (uiState.isEditMode)
+                                                    ButtonDefaults.filledTonalButtonColors(
+                                                            containerColor =
+                                                                    MaterialTheme.colorScheme
+                                                                            .primaryContainer
+                                                    )
+                                            else ButtonDefaults.filledTonalButtonColors()
                             ) {
                                 Icon(
-                                    imageVector = if (uiState.isEditMode) Icons.Default.Check else Icons.Default.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                                        imageVector =
+                                                if (uiState.isEditMode) Icons.Default.Check
+                                                else Icons.Default.Edit,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(if (uiState.isEditMode) "تم التفعيل" else "تفعيل التعديل")
                             }
                         } else {
                             AssistChip(
-                                onClick = {},
-                                label = { Text("وضع القراءة فقط") },
-                                leadingIcon = { Icon(Icons.Default.Lock, null, Modifier.size(16.dp)) }
+                                    onClick = {},
+                                    label = { Text("وضع القراءة فقط") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Lock, null, Modifier.size(16.dp))
+                                    }
                             )
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Filters Row: Zone and Month
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Zone Selector
                     Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            modifier = Modifier.weight(1f),
+                            colors =
+                                    CardDefaults.cardColors(
+                                            containerColor =
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                    )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = Strings.selectZone,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = Strings.selectZone,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             ExposedDropdownMenuBox(
-                                expanded = zoneExpanded,
-                                onExpandedChange = { zoneExpanded = it }
+                                    expanded = zoneExpanded,
+                                    onExpandedChange = { zoneExpanded = it }
                             ) {
                                 OutlinedTextField(
-                                    value = uiState.zones.find { it.id == uiState.selectedZoneId }?.name ?: "",
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = zoneExpanded) },
-                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                    textStyle = MaterialTheme.typography.bodyMedium
+                                        value =
+                                                uiState.zones
+                                                        .find { it.id == uiState.selectedZoneId }
+                                                        ?.name
+                                                        ?: "",
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        trailingIcon = {
+                                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                                    expanded = zoneExpanded
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                        colors =
+                                                ExposedDropdownMenuDefaults
+                                                        .outlinedTextFieldColors(),
+                                        textStyle = MaterialTheme.typography.bodyMedium
                                 )
                                 ExposedDropdownMenu(
-                                    expanded = zoneExpanded,
-                                    onDismissRequest = { zoneExpanded = false }
+                                        expanded = zoneExpanded,
+                                        onDismissRequest = { zoneExpanded = false }
                                 ) {
                                     uiState.zones.forEach { zone ->
                                         DropdownMenuItem(
-                                            text = { Text(zone.name) },
-                                            onClick = {
-                                                viewModel.selectZone(zone.id)
-                                                zoneExpanded = false
-                                            }
+                                                text = { Text(zone.name) },
+                                                onClick = {
+                                                    viewModel.selectZone(zone.id)
+                                                    zoneExpanded = false
+                                                }
                                         )
                                     }
                                 }
@@ -144,41 +158,51 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
 
                     // Year Selector
                     Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            modifier = Modifier.weight(1f),
+                            colors =
+                                    CardDefaults.cardColors(
+                                            containerColor =
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                    )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "السنة",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "السنة",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             var yearExpanded by remember { mutableStateOf(false) }
                             ExposedDropdownMenuBox(
-                                expanded = yearExpanded,
-                                onExpandedChange = { yearExpanded = it }
+                                    expanded = yearExpanded,
+                                    onExpandedChange = { yearExpanded = it }
                             ) {
                                 OutlinedTextField(
-                                    value = uiState.selectedYear.toString(),
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = yearExpanded) },
-                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                    textStyle = MaterialTheme.typography.bodyMedium
+                                        value = uiState.selectedYear.toString(),
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        trailingIcon = {
+                                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                                    expanded = yearExpanded
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                        colors =
+                                                ExposedDropdownMenuDefaults
+                                                        .outlinedTextFieldColors(),
+                                        textStyle = MaterialTheme.typography.bodyMedium
                                 )
                                 ExposedDropdownMenu(
-                                    expanded = yearExpanded,
-                                    onDismissRequest = { yearExpanded = false }
+                                        expanded = yearExpanded,
+                                        onDismissRequest = { yearExpanded = false }
                                 ) {
                                     uiState.availableYears.forEach { year ->
                                         DropdownMenuItem(
-                                            text = { Text(year.toString()) },
-                                            onClick = {
-                                                viewModel.selectYear(year)
-                                                yearExpanded = false
-                                            }
+                                                text = { Text(year.toString()) },
+                                                onClick = {
+                                                    viewModel.selectYear(year)
+                                                    yearExpanded = false
+                                                }
                                         )
                                     }
                                 }
@@ -188,55 +212,72 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
 
                     // Month Selector
                     Card(
-                        modifier = Modifier.weight(1f),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            modifier = Modifier.weight(1f),
+                            colors =
+                                    CardDefaults.cardColors(
+                                            containerColor =
+                                                    MaterialTheme.colorScheme.surfaceVariant
+                                    )
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
-                                text = "الشهر",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text = "الشهر",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             ExposedDropdownMenuBox(
-                                expanded = monthExpanded,
-                                onExpandedChange = { monthExpanded = it }
+                                    expanded = monthExpanded,
+                                    onExpandedChange = { monthExpanded = it }
                             ) {
                                 OutlinedTextField(
-                                    value = uiState.selectedMonth.displayName,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
-                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                                    textStyle = MaterialTheme.typography.bodyMedium
+                                        value = uiState.selectedMonth.displayName,
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        trailingIcon = {
+                                            ExposedDropdownMenuDefaults.TrailingIcon(
+                                                    expanded = monthExpanded
+                                            )
+                                        },
+                                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                        colors =
+                                                ExposedDropdownMenuDefaults
+                                                        .outlinedTextFieldColors(),
+                                        textStyle = MaterialTheme.typography.bodyMedium
                                 )
                                 ExposedDropdownMenu(
-                                    expanded = monthExpanded,
-                                    onDismissRequest = { monthExpanded = false }
+                                        expanded = monthExpanded,
+                                        onDismissRequest = { monthExpanded = false }
                                 ) {
                                     uiState.availableMonths.forEach { month ->
                                         DropdownMenuItem(
-                                            text = { 
-                                                Row(
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    // Display only month name if year is selected separately, or keep full name
-                                                    Text(month.displayName)
-                                                    if (month == MonthYear.current()) {
-                                                        Text(
-                                                            "(الحالي)",
-                                                            color = MaterialTheme.colorScheme.primary,
-                                                            style = MaterialTheme.typography.labelSmall
-                                                        )
+                                                text = {
+                                                    Row(
+                                                            horizontalArrangement =
+                                                                    Arrangement.SpaceBetween,
+                                                            modifier = Modifier.fillMaxWidth()
+                                                    ) {
+                                                        // Display only month name if year is
+                                                        // selected separately, or keep full name
+                                                        Text(month.displayName)
+                                                        if (month == MonthYear.current()) {
+                                                            Text(
+                                                                    "(الحالي)",
+                                                                    color =
+                                                                            MaterialTheme
+                                                                                    .colorScheme
+                                                                                    .primary,
+                                                                    style =
+                                                                            MaterialTheme.typography
+                                                                                    .labelSmall
+                                                            )
+                                                        }
                                                     }
+                                                },
+                                                onClick = {
+                                                    viewModel.selectMonth(month)
+                                                    monthExpanded = false
                                                 }
-                                            },
-                                            onClick = {
-                                                viewModel.selectMonth(month)
-                                                monthExpanded = false
-                                            }
                                         )
                                     }
                                 }
@@ -249,63 +290,66 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
 
                 // Search Bar
                 OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { 
-                        searchQuery = it
-                        viewModel.setSearchQuery(it)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(Strings.searchMembers) },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    singleLine = true
+                        value = searchQuery,
+                        onValueChange = {
+                            searchQuery = it
+                            viewModel.setSearchQuery(it)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(Strings.searchMembers) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                        singleLine = true
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Table Header
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        modifier = Modifier.fillMaxWidth(),
+                        colors =
+                                CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            modifier =
+                                    Modifier.fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = Strings.fullName,
-                            modifier = Modifier.weight(2f),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium
+                                text = Strings.fullName,
+                                modifier = Modifier.weight(2f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
                         )
                         Text(
-                            text = Strings.meterNumber,
-                            modifier = Modifier.weight(1.2f),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center
+                                text = Strings.meterNumber,
+                                modifier = Modifier.weight(1.2f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
                         )
                         Text(
-                            text = Strings.previousReading,
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center
+                                text = Strings.previousReading,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
                         )
                         Text(
-                            text = Strings.currentReading,
-                            modifier = Modifier.weight(1.5f),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center
+                                text = Strings.currentReading,
+                                modifier = Modifier.weight(1.5f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
                         )
                         Text(
-                            text = Strings.consumption,
-                            modifier = Modifier.weight(1f),
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium,
-                            textAlign = TextAlign.Center
+                                text = Strings.consumption,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -315,25 +359,31 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                 // Readings List - Using weight to prevent summary card overlap
                 Box(modifier = Modifier.weight(1f)) {
                     if (uiState.isLoading) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
+                        Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                        ) { CircularProgressIndicator() }
                     } else if (uiState.filteredReadings.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = if (searchQuery.isNotBlank()) "لا توجد نتائج" else Strings.noMembers,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    text =
+                                            if (searchQuery.isNotBlank()) "لا توجد نتائج"
+                                            else Strings.noMembers,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
-                        LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             items(uiState.filteredReadings, key = { it.subscriberId }) { entry ->
                                 MeterReadingRow(
-                                    entry = entry,
-                                    isEditMode = uiState.isEditMode,
-                                    onReadingChange = { viewModel.updateReading(entry.subscriberId, it) }
+                                        entry = entry,
+                                        isEditMode = uiState.isEditMode,
+                                        onReadingChange = {
+                                            viewModel.updateReading(entry.subscriberId, it)
+                                        }
                                 )
                             }
                         }
@@ -344,52 +394,54 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                 if (uiState.enteredCount > 0 || uiState.isEditMode) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
+                            modifier = Modifier.fillMaxWidth(),
+                            colors =
+                                    CardDefaults.cardColors(
+                                            containerColor =
+                                                    MaterialTheme.colorScheme.tertiaryContainer
+                                    )
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "${uiState.enteredCount}",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold
+                                            text = "${uiState.enteredCount}",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "قراءات مدخلة",
-                                        style = MaterialTheme.typography.labelMedium
+                                            text = "قراءات مدخلة",
+                                            style = MaterialTheme.typography.labelMedium
                                     )
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text(
-                                        text = "${uiState.totalConsumption} ${Strings.m3}",
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold
+                                            text = "${uiState.totalConsumption} ${Strings.m3}",
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold
                                     )
                                     Text(
-                                        text = "إجمالي الاستهلاك",
-                                        style = MaterialTheme.typography.labelMedium
+                                            text = "إجمالي الاستهلاك",
+                                            style = MaterialTheme.typography.labelMedium
                                     )
                                 }
                             }
-                            
+
                             // Save Button
                             if (uiState.isEditMode && uiState.enteredCount > 0) {
                                 Button(
-                                    onClick = { viewModel.saveAllReadings() },
-                                    enabled = !uiState.isSaving
+                                        onClick = { viewModel.saveAllReadings() },
+                                        enabled = !uiState.isSaving
                                 ) {
                                     if (uiState.isSaving) {
                                         CircularProgressIndicator(
-                                            modifier = Modifier.size(16.dp),
-                                            strokeWidth = 2.dp,
-                                            color = MaterialTheme.colorScheme.onPrimary
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.onPrimary
                                         )
                                     } else {
                                         Icon(Icons.Default.Save, contentDescription = null)
@@ -408,87 +460,111 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
 
 @Composable
 fun MeterReadingRow(
-    entry: MeterReadingEntry,
-    isEditMode: Boolean,
-    onReadingChange: (String) -> Unit
+        entry: MeterReadingEntry,
+        isEditMode: Boolean,
+        onReadingChange: (String) -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                entry.hasInvoice -> Color(0xFF4CAF50).copy(alpha = 0.1f) // Green tint for invoiced
-                entry.currentReading.isNotBlank() -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                isEditMode -> MaterialTheme.colorScheme.surface
-                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            }
-        )
+            modifier = Modifier.fillMaxWidth(),
+            colors =
+                    CardDefaults.cardColors(
+                            containerColor =
+                                    when {
+                                        entry.hasInvoice ->
+                                                Color(0xFF4CAF50)
+                                                        .copy(
+                                                                alpha = 0.1f
+                                                        ) // Green tint for invoiced
+                                        entry.currentReading.isNotBlank() ->
+                                                MaterialTheme.colorScheme.primaryContainer.copy(
+                                                        alpha = 0.3f
+                                                )
+                                        isEditMode -> MaterialTheme.colorScheme.surface
+                                        else ->
+                                                MaterialTheme.colorScheme.surfaceVariant.copy(
+                                                        alpha = 0.5f
+                                                )
+                                    }
+                    )
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = entry.subscriberName,
-                modifier = Modifier.weight(2f),
-                style = MaterialTheme.typography.bodyMedium
+                    text = entry.subscriberName,
+                    modifier = Modifier.weight(2f),
+                    style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = entry.meterNumber,
-                modifier = Modifier.weight(1.2f),
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = entry.meterNumber,
+                    modifier = Modifier.weight(1.2f),
+                    style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "${entry.previousReading}",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center
+                    text = "${entry.previousReading}",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center
             )
-            
+
             // Current Reading Input
             Box(modifier = Modifier.weight(1.5f), contentAlignment = Alignment.Center) {
                 if (isEditMode) {
                     OutlinedTextField(
-                        value = entry.currentReading,
-                        onValueChange = { onReadingChange(it.filter { c -> c.isDigit() }) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
-                        placeholder = { Text(Strings.enterReading, style = MaterialTheme.typography.labelSmall) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = if (entry.hasInvoice) Color(0xFFE8F5E9) else Color.Transparent,
-                            unfocusedContainerColor = if (entry.hasInvoice) Color(0xFFE8F5E9) else Color.Transparent
-                        )
+                            value = entry.currentReading,
+                            onValueChange = { onReadingChange(it.filter { c -> c.isDigit() }) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center),
+                            placeholder = {
+                                Text(
+                                        text = Strings.enterReading,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.fillMaxWidth()
+                                )
+                            },
+                            colors =
+                                    OutlinedTextFieldDefaults.colors(
+                                            focusedContainerColor =
+                                                    if (entry.hasInvoice) Color(0xFFE8F5E9)
+                                                    else Color.Transparent,
+                                            unfocusedContainerColor =
+                                                    if (entry.hasInvoice) Color(0xFFE8F5E9)
+                                                    else Color.Transparent
+                                    )
                     )
                 } else if (entry.hasInvoice) {
                     Text(
-                        text = "${entry.currentReading} (تمت الفوترة)",
-                        color = Color(0xFF2E7D32),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+                            text = "${entry.currentReading} (تمت الفوترة)",
+                            color = Color(0xFF2E7D32),
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
                     )
                 } else {
                     Text(
-                        text = entry.currentReading.ifBlank { "-" },
-                        modifier = Modifier.fillMaxWidth(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center
+                            text = entry.currentReading.ifBlank { "-" },
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center
                     )
                 }
             }
-            
+
             Text(
-                text = if (entry.consumption > 0) "${entry.consumption}" else "-",
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                fontWeight = if (entry.consumption > 0) FontWeight.Bold else FontWeight.Normal,
-                color = if (entry.consumption > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    text = if (entry.consumption > 0) "${entry.consumption}" else "-",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    fontWeight = if (entry.consumption > 0) FontWeight.Bold else FontWeight.Normal,
+                    color =
+                            if (entry.consumption > 0) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }

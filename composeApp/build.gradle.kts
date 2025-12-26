@@ -43,7 +43,7 @@ kotlin {
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
-            
+
             // Licensing Dependencies
             implementation(libs.supabase.postgrest)
             implementation(libs.multiplatform.settings)
@@ -90,6 +90,14 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "org.associations.project"
             packageVersion = "1.0.0"
+        }
+    }
+}
+
+sqldelight {
+    databases { create("AppDatabase") { packageName.set("org.associations.project.database") } }
+}
+            }
         }
     }
 }

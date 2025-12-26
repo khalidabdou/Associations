@@ -60,4 +60,12 @@ class MembersViewModel(private val repository: AppRepository) : ViewModel() {
             repository.updateSubscriber(id, fullName, phone, meterNumber, address, zoneId, isActive)
         }
     }
+
+    fun deleteSubscriber(id: Long) {
+        viewModelScope.launch { repository.deleteSubscriber(id) }
+    }
+
+    fun deleteInvoice(id: Long) {
+        viewModelScope.launch { repository.deleteInvoice(id) }
+    }
 }
