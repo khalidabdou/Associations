@@ -217,6 +217,48 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                             }
                         }
                     }
+
+                    // Backup & Data Section
+                    item {
+                        SettingsSection(
+                                title = "النسخ الاحتياطي والبيانات",
+                                icon = Icons.Default.Storage
+                        ) {
+                            Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Button(
+                                            onClick = { viewModel.exportData() },
+                                            modifier = Modifier.weight(1f)
+                                    ) { Text("تصدير البيانات") }
+                                    Button(
+                                            onClick = { viewModel.importData() },
+                                            modifier = Modifier.weight(1f),
+                                            colors =
+                                                    ButtonDefaults.buttonColors(
+                                                            containerColor =
+                                                                    MaterialTheme.colorScheme
+                                                                            .secondary
+                                                    )
+                                    ) { Text("استيراد البيانات") }
+                                }
+                                Button(
+                                        onClick = { viewModel.showClearDataDialog() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors =
+                                                ButtonDefaults.buttonColors(
+                                                        containerColor =
+                                                                MaterialTheme.colorScheme.error
+                                                )
+                                ) { Text("محو جميع البيانات") }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -375,7 +417,60 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                             viewModel.updateAssociationDetails(name, addr, phone)
                         }
                 )
+        "clearData" -> {
+            uiState.confirmationCode?.let { code ->
+                ClearDataDialog(
+                        code = code,
+                        enteredCode = uiState.userEnteredCode,
+                        onCodeChange = { viewModel.updateEnteredCode(it) },
+                        onDismiss = { viewModel.dismissEditDialog() },
+                        onConfirm = { viewModel.confirmClearData() }
+                )
+            }
+        }
     }
+}
+
+@Composable
+fun ClearDataDialog(
+        code: String,
+        enteredCode: String,
+        onCodeChange: (String) -> Unit,
+        onDismiss: () -> Unit,
+        onConfirm: () -> Unit
+) {
+    AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("تأكيد مسح البيانات", color = MaterialTheme.colorScheme.error) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                            "هل أنت متأكد من رغبتك في مسح جميع البيانات؟ لا يمكن التراجع عن هذا الإجراء."
+                    )
+                    Text("للتأكيد، يرجى إدخال الرمز التالي: $code", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                            value = enteredCode,
+                            onValueChange = {
+                                if (it.length <= 4 && it.all { c -> c.isDigit() }) onCodeChange(it)
+                            },
+                            label = { Text("رمز التأكيد") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                        onClick = onConfirm,
+                        colors =
+                                ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.error
+                                ),
+                        enabled = enteredCode.length == 4
+                ) { Text("مسح البيانات") }
+            },
+            dismissButton = { TextButton(onClick = onDismiss) { Text(Strings.cancel) } }
+    )
 }
 
 @Composable

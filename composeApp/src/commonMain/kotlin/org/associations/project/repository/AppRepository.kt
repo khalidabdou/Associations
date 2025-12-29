@@ -10,8 +10,51 @@ import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Clock
 import org.associations.project.database.*
 
-class AppRepository(db: AppDatabase) {
+class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFactory) {
     private val queries = db.appDatabaseQueries
+
+    // ===== Database Management =====
+    fun exportDatabase(path: String) {
+        try {
+            driverFactory.exportDatabase(path)
+        } catch (e: Exception) {
+            println("Export error: ${e.message}")
+            throw e
+        }
+    }
+
+    fun importDatabase(path: String) {
+        try {
+            driverFactory.importDatabase(path)
+        } catch (e: Exception) {
+            println("Import error: ${e.message}")
+            throw e
+        }
+    }
+
+    fun clearDatabase() {
+        // Deprecated: use clearUserData instead
+        try {
+            driverFactory.clearDatabase()
+        } catch (e: Exception) {
+            println("Clear DB error: ${e.message}")
+            throw e
+        }
+    }
+
+    suspend fun clearUserData() {
+        queries.transaction {
+            queries.deleteAllInvoices()
+            queries.deleteAllTransactions()
+            queries.deleteAllTickets()
+            queries.deleteAllSubscribers()
+            queries.deleteAllZones()
+            queries.deleteAllPricingTiers()
+            // We DO NOT delete settings to preserve association info
+        }
+        // Re-initialize default data
+        initializeDatabase()
+    }
 
     suspend fun initializeDatabase() {
         try {

@@ -12,7 +12,8 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 
 actual val platformModule: Module = module {
-    single { DatabaseDriverFactory().createDriver() }
+    singleOf(::DatabaseDriverFactory)
+    single { get<DatabaseDriverFactory>().createDriver() }
     singleOf(::DesktopPrintService) bind PrintService::class
 
     single<DeviceFingerprint> { DesktopDeviceFingerprint() }

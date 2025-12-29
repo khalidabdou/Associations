@@ -97,11 +97,3 @@ compose.desktop {
 sqldelight {
     databases { create("AppDatabase") { packageName.set("org.associations.project.database") } }
 }
-            }
-        }
-    }
-}
-
-sqldelight {
-    databases { create("AppDatabase") { packageName.set("org.associations.project.database") } }
-}

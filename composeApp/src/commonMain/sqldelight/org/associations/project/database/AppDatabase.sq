@@ -330,3 +330,22 @@ getRecentTransactions:
 SELECT * FROM TransactionTable 
 ORDER BY date DESC
 LIMIT 5;
+
+-- Clear Data Queries
+deleteAllSubscribers:
+DELETE FROM Subscriber;
+
+deleteAllInvoices:
+DELETE FROM Invoice;
+
+deleteAllTransactions:
+DELETE FROM TransactionTable;
+
+deleteAllTickets:
+DELETE FROM MaintenanceTicket;
+
+deleteAllZones:
+DELETE FROM Zone;
+
+deleteAllPricingTiers:
+DELETE FROM PricingTier;

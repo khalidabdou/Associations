@@ -20,8 +20,10 @@ class DashboardViewModel(private val repository: AppRepository) : ViewModel() {
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch { repository.initializeDatabase() }
-        loadDashboardData()
+        viewModelScope.launch {
+            repository.initializeDatabase()
+            loadDashboardData()
+        }
     }
 
     private fun loadDashboardData() {

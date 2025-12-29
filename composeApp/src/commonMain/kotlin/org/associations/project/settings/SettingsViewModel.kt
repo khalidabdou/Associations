@@ -23,7 +23,9 @@ data class SettingsUiState(
         val logoPath: String? = null,
         val editingField: String? =
                 null, // "lateFee", "monthlyFee", "gracePeriod", "dueDate", "assocName",
-        // "assocAddress", "assocPhone", "printFormat"
+        // "assocAddress", "assocPhone", "printFormat", "clearData"
+        val confirmationCode: String? = null,
+        val userEnteredCode: String = "",
         val isLoading: Boolean = true,
         val isActivated: Boolean = false,
         val message: String? = null
@@ -171,6 +173,90 @@ class SettingsViewModel(
 
     fun updateLogo(path: String?) {
         saveSettings(logo = path)
+    }
+
+    // ===== Backup & Restore =====
+
+    fun exportData() {
+        // Platform specific
+        // Generate filename with timestamp
+        val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds() // unique enough
+        val filename = "Association_Backup_$timestamp.db"
+
+        // Use Platform to get downloads dir (we need to expect/actual this or use System property)
+        val home = System.getProperty("user.home")
+        val downloadsPath = if (home != null) "$home/Downloads" else null
+
+        if (downloadsPath != null) {
+            val fullPath = "$downloadsPath/$filename"
+            viewModelScope.launch {
+                try {
+                    repository.exportDatabase(fullPath)
+                    showMessage("تم تصدير البيانات بنجاح إلى $fullPath")
+                } catch (e: Exception) {
+                    showMessage("فشل التصدير: ${e.message}")
+                }
+            }
+        } else {
+            // Fallback to picker if downloads not found
+            val path = org.associations.project.utils.FilePicker.pickDirectory()
+            if (path != null) {
+                viewModelScope.launch {
+                    try {
+                        repository.exportDatabase(path)
+                        showMessage("تم تصدير البيانات بنجاح إلى $path")
+                    } catch (e: Exception) {
+                        showMessage("فشل التصدير: ${e.message}")
+                    }
+                }
+            } else {
+                showMessage("لم يتم تحديد مسار التصدير")
+            }
+        }
+    }
+
+    fun importData() {
+        val path = org.associations.project.utils.FilePicker.pickFile()
+        if (path != null) {
+            viewModelScope.launch {
+                try {
+                    repository.importDatabase(path)
+                    showMessage("تم استيراد البيانات بنجاح. يرجى إعادة تشغيل التطبيق.")
+                    // Trigger a reload or restart if possible, for now just message
+                } catch (e: Exception) {
+                    showMessage("فشل الاستيراد: ${e.message}")
+                }
+            }
+        }
+    }
+
+    // ===== Clear Data logic =====
+    fun showClearDataDialog() {
+        val code = (1000..9999).random().toString()
+        _uiState.update {
+            it.copy(editingField = "clearData", confirmationCode = code, userEnteredCode = "")
+        }
+    }
+
+    fun updateEnteredCode(code: String) {
+        _uiState.update { it.copy(userEnteredCode = code) }
+    }
+
+    fun confirmClearData() {
+        val state = uiState.value
+        if (state.userEnteredCode == state.confirmationCode) {
+            viewModelScope.launch {
+                try {
+                    repository.clearUserData() // Use the safe method
+                    showMessage("تم مسح بيانات المستخدم بنجاح.")
+                    dismissEditDialog()
+                } catch (e: Exception) {
+                    showMessage("خطأ في مسح البيانات: ${e.message}")
+                }
+            }
+        } else {
+            showMessage("رمز التأكيد غير صحيح")
+        }
     }
 
     // Zone Operations
