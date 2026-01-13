@@ -80,10 +80,6 @@ fun App() {
                                         navController.navigate(Screen.Treasury) {
                                             popUpTo(Screen.Dashboard)
                                         }
-                                NavItem.Maintenance ->
-                                        navController.navigate(Screen.MaintenanceList) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
                                 NavItem.Settings ->
                                         navController.navigate(Screen.Settings) {
                                             popUpTo(Screen.Dashboard)

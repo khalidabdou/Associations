@@ -19,7 +19,8 @@ enum class NavItem(val route: String, val label: String, val icon: ImageVector) 
     Readings("readings", Strings.navReadings, Icons.Default.Speed),
     Invoices("invoices", Strings.navInvoices, Icons.Default.Receipt),
     Treasury("treasury", Strings.navTreasury, Icons.Default.AccountBalance),
-    Maintenance("maintenance", Strings.navMaintenance, Icons.Default.Build),
+    // Maintenance("maintenance", Strings.navMaintenance, Icons.Default.Build), // Hidden - coming
+    // soon
     Settings("settings", Strings.navSettings, Icons.Default.Settings)
 }
 
