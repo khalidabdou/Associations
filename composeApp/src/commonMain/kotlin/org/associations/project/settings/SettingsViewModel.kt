@@ -2,6 +2,7 @@ package org.associations.project.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.associations.project.database.PricingTier
@@ -21,6 +22,7 @@ data class SettingsUiState(
         val associationPhone: String = "",
         val printFormat: String = "A4",
         val logoPath: String? = null,
+        val allowPastMonthEditing: Boolean = false,
         val editingField: String? =
                 null, // "lateFee", "monthlyFee", "gracePeriod", "dueDate", "assocName",
         // "assocAddress", "assocPhone", "printFormat", "clearData"
@@ -33,14 +35,24 @@ data class SettingsUiState(
 
 class SettingsViewModel(
         private val repository: AppRepository,
-        private val licenseRepository: LicenseRepository
+        private val licenseRepository: LicenseRepository,
+        private val settings: Settings
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    companion object {
+        private const val KEY_ALLOW_PAST_MONTH_EDITING = "allow_past_month_editing"
+    }
+
     init {
-        // Check activation status immediately
-        _uiState.update { it.copy(isActivated = licenseRepository.isActivated()) }
+        // Check activation status and load settings
+        _uiState.update {
+            it.copy(
+                    isActivated = licenseRepository.isActivated(),
+                    allowPastMonthEditing = settings.getBoolean(KEY_ALLOW_PAST_MONTH_EDITING, false)
+            )
+        }
         loadData()
     }
 
@@ -173,6 +185,14 @@ class SettingsViewModel(
 
     fun updateLogo(path: String?) {
         saveSettings(logo = path)
+    }
+
+    fun updateAllowPastMonthEditing(enabled: Boolean) {
+        settings.putBoolean(KEY_ALLOW_PAST_MONTH_EDITING, enabled)
+        _uiState.update { it.copy(allowPastMonthEditing = enabled) }
+        showMessage(
+                if (enabled) "تم تفعيل تعديل الأشهر السابقة" else "تم إلغاء تعديل الأشهر السابقة"
+        )
     }
 
     // ===== Backup & Restore =====

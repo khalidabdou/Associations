@@ -2,6 +2,7 @@ package org.associations.project.meter
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
@@ -33,12 +34,16 @@ data class MeterReadingUiState(
         val availableMonths: List<MonthYear> =
                 MonthYear.generateMonthsForYear(MonthYear.current().year),
         val isEditMode: Boolean = false,
+        val allowPastMonthEditing: Boolean = false,
         val isLoading: Boolean = true,
         val isSaving: Boolean = false,
         val message: String? = null
 ) {
     val isEditableMonth: Boolean
         get() {
+            // If past month editing is allowed, all months are editable
+            if (allowPastMonthEditing) return true
+
             val current = MonthYear.current()
             // Allow editing for current month
             if (selectedMonth == current) return true
@@ -73,11 +78,22 @@ data class MeterReadingUiState(
         get() = readings.values.sumOf { it.consumption }
 }
 
-class MeterReadingViewModel(private val repository: AppRepository) : ViewModel() {
+class MeterReadingViewModel(private val repository: AppRepository, private val settings: Settings) :
+        ViewModel() {
     private val _uiState = MutableStateFlow(MeterReadingUiState())
     val uiState: StateFlow<MeterReadingUiState> = _uiState.asStateFlow()
 
+    companion object {
+        private const val KEY_ALLOW_PAST_MONTH_EDITING = "allow_past_month_editing"
+    }
+
     init {
+        // Load settings
+        _uiState.update {
+            it.copy(
+                    allowPastMonthEditing = settings.getBoolean(KEY_ALLOW_PAST_MONTH_EDITING, false)
+            )
+        }
         loadZones()
     }
 

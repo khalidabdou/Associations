@@ -200,15 +200,59 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                         value = "${uiState.dueDateDays}",
                                         onEdit = { viewModel.showEditDialog("dueDate") }
                                 )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Past Month Editing Toggle
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                            text = "السماح بتعديل الأشهر السابقة",
+                                            style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Switch(
+                                            checked = uiState.allowPastMonthEditing,
+                                            onCheckedChange = {
+                                                viewModel.updateAllowPastMonthEditing(it)
+                                            }
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // License Activation Section - only show if not activated
-                    if (!uiState.isActivated) {
-                        item {
-                            SettingsSection(title = "تفعيل التطبيق", icon = Icons.Default.VpnKey) {
-                                Column(modifier = Modifier.padding(16.dp)) {
+                    // License Activation Section
+                    item {
+                        SettingsSection(title = "تفعيل التطبيق", icon = Icons.Default.VpnKey) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                if (uiState.isActivated) {
+                                    // Show activation info when activated
+                                    Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                                imageVector = Icons.Default.CheckCircle,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                                text = "التطبيق مفعل",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    // Show activate button when not activated
                                     Button(
                                             onClick = { onNavigateToActivation?.invoke() },
                                             modifier = Modifier.fillMaxWidth()
