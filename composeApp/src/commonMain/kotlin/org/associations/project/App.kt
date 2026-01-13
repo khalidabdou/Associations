@@ -54,7 +54,8 @@ fun App() {
                                     currentRoute.contains("Maintenance") ||
                                             currentRoute.contains("Ticket") -> "maintenance"
                                     currentRoute.contains("Settings") ||
-                                            currentRoute.contains("Zone") -> "settings"
+                                            currentRoute.contains("Zone") ||
+                                            currentRoute.contains("Activation") -> "settings"
                                     else -> "dashboard"
                                 },
                         onNavigate = { navItem ->
