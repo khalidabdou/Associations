@@ -88,8 +88,17 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "org.associations.project"
+            packageName = "Associations"
             packageVersion = "1.0.0"
+            description = "Water Association Management System"
+            vendor = "Associations Project"
+            
+            windows {
+                menuGroup = "Associations"
+                shortcut = true
+                dirChooser = true
+                perUserInstall = true
+            }
         }
     }
 }
