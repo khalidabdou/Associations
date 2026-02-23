@@ -16,6 +16,7 @@ import org.associations.project.database.GetAllSubscribers
 import org.associations.project.database.Zone
 import org.associations.project.navigation.NavGraph
 import org.associations.project.navigation.Screen
+import org.associations.project.ui.AppTheme
 import org.associations.project.ui.MainLayout
 import org.associations.project.ui.NavItem
 import org.associations.project.ui.Strings
@@ -25,7 +26,7 @@ import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun App() {
-    MaterialTheme {
+    AppTheme {
         KoinContext {
             val activationViewModel = koinViewModel<ActivationViewModel>()
             val isActivated = activationViewModel.checkActivation()

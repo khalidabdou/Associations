@@ -24,7 +24,7 @@ enum class NavItem(val route: String, val label: String, val icon: ImageVector) 
     Settings("settings", Strings.navSettings, Icons.Default.Settings)
 }
 
-/** Main layout with NavigationRail for desktop Uses RTL layout for Arabic */
+/** Main layout — adapts to screen width: bottom nav on mobile, rail on desktop */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainLayout(
@@ -35,77 +35,170 @@ fun MainLayout(
         title: String = Strings.appName,
         content: @Composable () -> Unit
 ) {
-    // Force RTL layout for Arabic
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // Navigation Rail on the right (RTL means it appears on right)
-            NavigationRail(
-                    modifier = Modifier.fillMaxHeight(),
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    header = {
-                        if (showBackButton) {
-                            IconButton(onClick = onBackClick) {
-                                Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = Strings.back
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                    }
-            ) {
-                NavItem.entries.forEach { item ->
-                    NavigationRailItem(
-                            selected = currentRoute.startsWith(item.route),
-                            onClick = { onNavigate(item) },
-                            icon = {
-                                Icon(imageVector = item.icon, contentDescription = item.label)
-                            },
-                            label = { Text(item.label) },
-                            alwaysShowLabel = true,
-                            colors =
-                                    NavigationRailItemDefaults.colors(
-                                            selectedIconColor =
-                                                    MaterialTheme.colorScheme.onPrimaryContainer,
-                                            selectedTextColor =
-                                                    MaterialTheme.colorScheme.onPrimaryContainer,
-                                            indicatorColor =
-                                                    MaterialTheme.colorScheme.primaryContainer,
-                                            unselectedIconColor =
-                                                    MaterialTheme.colorScheme.onSurfaceVariant,
-                                            unselectedTextColor =
-                                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                    )
-                }
-            }
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isMobile = maxWidth < 600.dp
 
-            // Main content area
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                // Top App Bar
-                TopAppBar(
-                        title = { Text(title) },
-                        colors =
-                                TopAppBarDefaults.topAppBarColors(
-                                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        titleContentColor =
-                                                MaterialTheme.colorScheme.onPrimaryContainer
-                                ),
-                        navigationIcon = {
-                            if (showBackButton) {
-                                IconButton(onClick = onBackClick) {
-                                    Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                            contentDescription = Strings.back
-                                    )
+            if (isMobile) {
+                // ── Mobile: Bottom NavigationBar ──
+                Scaffold(
+                        topBar = {
+                            TopAppBar(
+                                    title = { Text(title) },
+                                    colors =
+                                            TopAppBarDefaults.topAppBarColors(
+                                                    containerColor =
+                                                            MaterialTheme.colorScheme.surface,
+                                                    titleContentColor =
+                                                            MaterialTheme.colorScheme.onSurface
+                                            ),
+                                    navigationIcon = {
+                                        if (showBackButton) {
+                                            IconButton(onClick = onBackClick) {
+                                                Icon(
+                                                        imageVector =
+                                                                Icons.AutoMirrored.Filled.ArrowBack,
+                                                        contentDescription = Strings.back
+                                                )
+                                            }
+                                        }
+                                    }
+                            )
+                        },
+                        bottomBar = {
+                            if (!showBackButton) {
+                                NavigationBar(
+                                        containerColor = MaterialTheme.colorScheme.surface,
+                                        tonalElevation = 8.dp
+                                ) {
+                                    NavItem.entries.forEach { item ->
+                                        NavigationBarItem(
+                                                selected = currentRoute.startsWith(item.route),
+                                                onClick = { onNavigate(item) },
+                                                icon = {
+                                                    Icon(
+                                                            imageVector = item.icon,
+                                                            contentDescription = item.label
+                                                    )
+                                                },
+                                                label = {
+                                                    Text(
+                                                            item.label,
+                                                            style =
+                                                                    MaterialTheme.typography
+                                                                            .labelSmall
+                                                    )
+                                                },
+                                                alwaysShowLabel = true,
+                                                colors =
+                                                        NavigationBarItemDefaults.colors(
+                                                                selectedIconColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary,
+                                                                selectedTextColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primary,
+                                                                indicatorColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .primaryContainer,
+                                                                unselectedIconColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .onSurfaceVariant,
+                                                                unselectedTextColor =
+                                                                        MaterialTheme.colorScheme
+                                                                                .onSurfaceVariant
+                                                        )
+                                        )
+                                    }
                                 }
                             }
                         }
-                )
+                ) { padding ->
+                    Box(
+                            modifier =
+                                    Modifier.fillMaxSize()
+                                            .padding(padding)
+                                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) { content() }
+                }
+            } else {
+                // ── Desktop: NavigationRail sidebar ──
+                Row(modifier = Modifier.fillMaxSize()) {
+                    NavigationRail(
+                            modifier = Modifier.fillMaxHeight(),
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            header = {
+                                if (showBackButton) {
+                                    IconButton(onClick = onBackClick) {
+                                        Icon(
+                                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                                contentDescription = Strings.back
+                                        )
+                                    }
+                                } else {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                    ) {
+                        NavItem.entries.forEach { item ->
+                            NavigationRailItem(
+                                    selected = currentRoute.startsWith(item.route),
+                                    onClick = { onNavigate(item) },
+                                    icon = {
+                                        Icon(
+                                                imageVector = item.icon,
+                                                contentDescription = item.label
+                                        )
+                                    },
+                                    label = { Text(item.label) },
+                                    alwaysShowLabel = true,
+                                    colors =
+                                            NavigationRailItemDefaults.colors(
+                                                    selectedIconColor =
+                                                            MaterialTheme.colorScheme
+                                                                    .onPrimaryContainer,
+                                                    selectedTextColor =
+                                                            MaterialTheme.colorScheme
+                                                                    .onPrimaryContainer,
+                                                    indicatorColor =
+                                                            MaterialTheme.colorScheme
+                                                                    .primaryContainer,
+                                                    unselectedIconColor =
+                                                            MaterialTheme.colorScheme
+                                                                    .onSurfaceVariant,
+                                                    unselectedTextColor =
+                                                            MaterialTheme.colorScheme
+                                                                    .onSurfaceVariant
+                                            )
+                            )
+                        }
+                    }
 
-                // Content
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp)) { content() }
+                    Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        TopAppBar(
+                                title = { Text(title) },
+                                colors =
+                                        TopAppBarDefaults.topAppBarColors(
+                                                containerColor =
+                                                        MaterialTheme.colorScheme.primaryContainer,
+                                                titleContentColor =
+                                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                navigationIcon = {
+                                    if (showBackButton) {
+                                        IconButton(onClick = onBackClick) {
+                                            Icon(
+                                                    imageVector =
+                                                            Icons.AutoMirrored.Filled.ArrowBack,
+                                                    contentDescription = Strings.back
+                                            )
+                                        }
+                                    }
+                                }
+                        )
+                        Box(modifier = Modifier.fillMaxSize().padding(16.dp)) { content() }
+                    }
+                }
             }
         }
     }
