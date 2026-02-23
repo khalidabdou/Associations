@@ -26,7 +26,9 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         val viewModel = koinViewModel<MeterReadingViewModel>()
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+        var filterMenuExpanded by remember { mutableStateOf(false) }
         var zoneExpanded by remember { mutableStateOf(false) }
+        var yearExpanded by remember { mutableStateOf(false) }
         var monthExpanded by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         val snackbarHostState = remember { SnackbarHostState() }
@@ -39,99 +41,317 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         }
 
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-                        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
-                                // Header Row with Title and Edit Button
-                                Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
+                Scaffold(
+                        snackbarHost = { SnackbarHost(snackbarHostState) },
+                        topBar = {
+                                Surface(
+                                        shadowElevation = 2.dp,
+                                        color = MaterialTheme.colorScheme.surface
                                 ) {
-                                        Text(
-                                                text = Strings.addReadings,
-                                                style = MaterialTheme.typography.headlineMedium,
-                                                fontWeight = FontWeight.Bold
-                                        )
-
-                                        // Edit Mode Toggle
-                                        Row(
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically
+                                        Column(
+                                                modifier =
+                                                        Modifier.padding(
+                                                                horizontal = 16.dp,
+                                                                vertical = 8.dp
+                                                        )
                                         ) {
-                                                if (uiState.isCurrentMonth) {
-                                                        FilledTonalButton(
-                                                                onClick = {
-                                                                        viewModel.toggleEditMode()
+                                                Row(
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                        verticalAlignment =
+                                                                Alignment.CenterVertically,
+                                                        horizontalArrangement =
+                                                                Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                        OutlinedTextField(
+                                                                value = searchQuery,
+                                                                onValueChange = {
+                                                                        searchQuery = it
+                                                                        viewModel.setSearchQuery(it)
                                                                 },
-                                                                colors =
-                                                                        if (uiState.isEditMode)
-                                                                                ButtonDefaults
-                                                                                        .filledTonalButtonColors(
+                                                                modifier =
+                                                                        Modifier.weight(1f)
+                                                                                .heightIn(
+                                                                                        min = 48.dp
+                                                                                ),
+                                                                placeholder = {
+                                                                        Text(
+                                                                                Strings.searchMembers,
+                                                                                style =
+                                                                                        MaterialTheme
+                                                                                                .typography
+                                                                                                .bodyMedium
+                                                                        )
+                                                                },
+                                                                leadingIcon = {
+                                                                        Icon(
+                                                                                Icons.Default
+                                                                                        .Search,
+                                                                                contentDescription =
+                                                                                        null,
+                                                                                modifier =
+                                                                                        Modifier.size(
+                                                                                                20.dp
+                                                                                        )
+                                                                        )
+                                                                },
+                                                                trailingIcon = {
+                                                                        if (searchQuery.isNotEmpty()
+                                                                        ) {
+                                                                                IconButton(
+                                                                                        onClick = {
+                                                                                                searchQuery =
+                                                                                                        ""
+                                                                                                viewModel
+                                                                                                        .setSearchQuery(
+                                                                                                                ""
+                                                                                                        )
+                                                                                        }
+                                                                                ) {
+                                                                                        Icon(
+                                                                                                Icons.Default
+                                                                                                        .Clear,
+                                                                                                null,
+                                                                                                modifier =
+                                                                                                        Modifier.size(
+                                                                                                                16.dp
+                                                                                                        )
+                                                                                        )
+                                                                                }
+                                                                        }
+                                                                },
+                                                                singleLine = true,
+                                                                shape = MaterialTheme.shapes.medium
+                                                        )
+
+                                                        Box {
+                                                                IconButton(
+                                                                        onClick = {
+                                                                                filterMenuExpanded =
+                                                                                        true
+                                                                        },
+                                                                        colors =
+                                                                                IconButtonDefaults
+                                                                                        .filledIconButtonColors(
                                                                                                 containerColor =
                                                                                                         MaterialTheme
                                                                                                                 .colorScheme
-                                                                                                                .primaryContainer
+                                                                                                                .secondaryContainer
                                                                                         )
-                                                                        else
-                                                                                ButtonDefaults
-                                                                                        .filledTonalButtonColors()
-                                                        ) {
-                                                                Icon(
-                                                                        imageVector =
-                                                                                if (uiState.isEditMode
-                                                                                )
-                                                                                        Icons.Default
-                                                                                                .Check
-                                                                                else
-                                                                                        Icons.Default
-                                                                                                .Edit,
-                                                                        contentDescription = null,
-                                                                        modifier =
-                                                                                Modifier.size(18.dp)
-                                                                )
-                                                                Spacer(
-                                                                        modifier =
-                                                                                Modifier.width(4.dp)
-                                                                )
-                                                                Text(
-                                                                        if (uiState.isEditMode)
-                                                                                "تم التفعيل"
-                                                                        else "تفعيل التعديل"
-                                                                )
-                                                        }
-                                                } else {
-                                                        AssistChip(
-                                                                onClick = {},
-                                                                label = { Text("وضع القراءة فقط") },
-                                                                leadingIcon = {
+                                                                ) {
                                                                         Icon(
-                                                                                Icons.Default.Lock,
-                                                                                null,
-                                                                                Modifier.size(16.dp)
+                                                                                Icons.Default
+                                                                                        .FilterList,
+                                                                                contentDescription =
+                                                                                        Strings.filter
                                                                         )
                                                                 }
-                                                        )
+
+                                                                DropdownMenu(
+                                                                        expanded =
+                                                                                filterMenuExpanded,
+                                                                        onDismissRequest = {
+                                                                                filterMenuExpanded =
+                                                                                        false
+                                                                        }
+                                                                ) {
+                                                                        // Zone Selection
+                                                                        DropdownMenuItem(
+                                                                                text = {
+                                                                                        Row(
+                                                                                                verticalAlignment =
+                                                                                                        Alignment
+                                                                                                                .CenterVertically,
+                                                                                                horizontalArrangement =
+                                                                                                        Arrangement
+                                                                                                                .SpaceBetween,
+                                                                                                modifier =
+                                                                                                        Modifier.fillMaxWidth()
+                                                                                        ) {
+                                                                                                Text(
+                                                                                                        Strings.zone
+                                                                                                )
+                                                                                                Text(
+                                                                                                        uiState.zones
+                                                                                                                .find {
+                                                                                                                        it.id ==
+                                                                                                                                uiState.selectedZoneId
+                                                                                                                }
+                                                                                                                ?.name
+                                                                                                                ?: "",
+                                                                                                        style =
+                                                                                                                MaterialTheme
+                                                                                                                        .typography
+                                                                                                                        .labelMedium,
+                                                                                                        color =
+                                                                                                                MaterialTheme
+                                                                                                                        .colorScheme
+                                                                                                                        .primary
+                                                                                                )
+                                                                                        }
+                                                                                },
+                                                                                onClick = {
+                                                                                        zoneExpanded =
+                                                                                                true
+                                                                                },
+                                                                                leadingIcon = {
+                                                                                        Icon(
+                                                                                                Icons.Default
+                                                                                                        .LocationOn,
+                                                                                                null,
+                                                                                                Modifier.size(
+                                                                                                        18.dp
+                                                                                                )
+                                                                                        )
+                                                                                }
+                                                                        )
+
+                                                                        // Year Selection
+                                                                        DropdownMenuItem(
+                                                                                text = {
+                                                                                        Row(
+                                                                                                verticalAlignment =
+                                                                                                        Alignment
+                                                                                                                .CenterVertically,
+                                                                                                horizontalArrangement =
+                                                                                                        Arrangement
+                                                                                                                .SpaceBetween,
+                                                                                                modifier =
+                                                                                                        Modifier.fillMaxWidth()
+                                                                                        ) {
+                                                                                                Text(
+                                                                                                        "السنة"
+                                                                                                )
+                                                                                                Text(
+                                                                                                        uiState.selectedYear
+                                                                                                                .toString(),
+                                                                                                        style =
+                                                                                                                MaterialTheme
+                                                                                                                        .typography
+                                                                                                                        .labelMedium,
+                                                                                                        color =
+                                                                                                                MaterialTheme
+                                                                                                                        .colorScheme
+                                                                                                                        .primary
+                                                                                                )
+                                                                                        }
+                                                                                },
+                                                                                onClick = {
+                                                                                        yearExpanded =
+                                                                                                true
+                                                                                },
+                                                                                leadingIcon = {
+                                                                                        Icon(
+                                                                                                Icons.Default
+                                                                                                        .CalendarToday,
+                                                                                                null,
+                                                                                                Modifier.size(
+                                                                                                        18.dp
+                                                                                                )
+                                                                                        )
+                                                                                }
+                                                                        )
+
+                                                                        // Month Selection
+                                                                        DropdownMenuItem(
+                                                                                text = {
+                                                                                        Row(
+                                                                                                verticalAlignment =
+                                                                                                        Alignment
+                                                                                                                .CenterVertically,
+                                                                                                horizontalArrangement =
+                                                                                                        Arrangement
+                                                                                                                .SpaceBetween,
+                                                                                                modifier =
+                                                                                                        Modifier.fillMaxWidth()
+                                                                                        ) {
+                                                                                                Text(
+                                                                                                        "الشهر"
+                                                                                                )
+                                                                                                Text(
+                                                                                                        uiState.selectedMonth
+                                                                                                                .displayName,
+                                                                                                        style =
+                                                                                                                MaterialTheme
+                                                                                                                        .typography
+                                                                                                                        .labelMedium,
+                                                                                                        color =
+                                                                                                                MaterialTheme
+                                                                                                                        .colorScheme
+                                                                                                                        .primary
+                                                                                                )
+                                                                                        }
+                                                                                },
+                                                                                onClick = {
+                                                                                        monthExpanded =
+                                                                                                true
+                                                                                },
+                                                                                leadingIcon = {
+                                                                                        Icon(
+                                                                                                Icons.Default
+                                                                                                        .DateRange,
+                                                                                                null,
+                                                                                                Modifier.size(
+                                                                                                        18.dp
+                                                                                                )
+                                                                                        )
+                                                                                }
+                                                                        )
+
+                                                                        Divider()
+
+                                                                        // Edit Mode Toggle inside
+                                                                        // Menu
+                                                                        if (uiState.isCurrentMonth
+                                                                        ) {
+                                                                                DropdownMenuItem(
+                                                                                        text = {
+                                                                                                Text(
+                                                                                                        if (uiState.isEditMode
+                                                                                                        )
+                                                                                                                "تعطيل التعديل"
+                                                                                                        else
+                                                                                                                "تفعيل التعديل"
+                                                                                                )
+                                                                                        },
+                                                                                        onClick = {
+                                                                                                viewModel
+                                                                                                        .toggleEditMode()
+                                                                                                filterMenuExpanded =
+                                                                                                        false
+                                                                                        },
+                                                                                        leadingIcon = {
+                                                                                                Icon(
+                                                                                                        if (uiState.isEditMode
+                                                                                                        )
+                                                                                                                Icons.Default
+                                                                                                                        .LockOpen
+                                                                                                        else
+                                                                                                                Icons.Default
+                                                                                                                        .Edit,
+                                                                                                        null,
+                                                                                                        Modifier.size(
+                                                                                                                18.dp
+                                                                                                        )
+                                                                                                )
+                                                                                        }
+                                                                                )
+                                                                        }
+                                                                }
+                                                        }
                                                 }
-                                        }
-                                }
 
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                // Filters: Zone on top row, Year + Month on second row
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        // Zone Selector - Full width
-                                        Card(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors =
-                                                        CardDefaults.cardColors(
-                                                                containerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .surfaceVariant
-                                                        )
-                                        ) {
-                                                Column(modifier = Modifier.padding(12.dp)) {
+                                                Row(
+                                                        modifier =
+                                                                Modifier.fillMaxWidth()
+                                                                        .padding(top = 4.dp),
+                                                        horizontalArrangement =
+                                                                Arrangement.SpaceBetween,
+                                                        verticalAlignment =
+                                                                Alignment.CenterVertically
+                                                ) {
                                                         Text(
-                                                                text = Strings.selectZone,
+                                                                text =
+                                                                        "${uiState.zones.find { it.id == uiState.selectedZoneId }?.name ?: ""} - ${uiState.selectedMonth.displayName} ${uiState.selectedYear}",
                                                                 style =
                                                                         MaterialTheme.typography
                                                                                 .labelSmall,
@@ -139,381 +359,163 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                         MaterialTheme.colorScheme
                                                                                 .onSurfaceVariant
                                                         )
-                                                        Spacer(modifier = Modifier.height(4.dp))
-                                                        ExposedDropdownMenuBox(
-                                                                expanded = zoneExpanded,
-                                                                onExpandedChange = {
-                                                                        zoneExpanded = it
-                                                                }
-                                                        ) {
-                                                                OutlinedTextField(
-                                                                        value =
-                                                                                uiState.zones
-                                                                                        .find {
-                                                                                                it.id ==
-                                                                                                        uiState.selectedZoneId
-                                                                                        }
-                                                                                        ?.name
-                                                                                        ?: "",
-                                                                        onValueChange = {},
-                                                                        readOnly = true,
-                                                                        singleLine = true,
-                                                                        trailingIcon = {
-                                                                                ExposedDropdownMenuDefaults
-                                                                                        .TrailingIcon(
-                                                                                                expanded =
-                                                                                                        zoneExpanded
+
+                                                        if (uiState.isEditMode) {
+                                                                Text(
+                                                                        text = "وضع التعديل نشط",
+                                                                        style =
+                                                                                MaterialTheme
+                                                                                        .typography
+                                                                                        .labelSmall,
+                                                                        color =
+                                                                                MaterialTheme
+                                                                                        .colorScheme
+                                                                                        .error,
+                                                                        fontWeight = FontWeight.Bold
+                                                                )
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                ) { padding ->
+                        // Dialogs
+                        if (zoneExpanded) {
+                                AlertDialog(
+                                        onDismissRequest = { zoneExpanded = false },
+                                        title = { Text(Strings.selectZone) },
+                                        text = {
+                                                LazyColumn {
+                                                        items(uiState.zones) { zone ->
+                                                                TextButton(
+                                                                        onClick = {
+                                                                                viewModel
+                                                                                        .selectZone(
+                                                                                                zone.id
                                                                                         )
+                                                                                zoneExpanded = false
+                                                                                filterMenuExpanded =
+                                                                                        false
                                                                         },
                                                                         modifier =
                                                                                 Modifier.fillMaxWidth()
-                                                                                        .menuAnchor(),
-                                                                        colors =
-                                                                                ExposedDropdownMenuDefaults
-                                                                                        .outlinedTextFieldColors(),
-                                                                        textStyle =
-                                                                                MaterialTheme
-                                                                                        .typography
-                                                                                        .bodyMedium
-                                                                )
-                                                                ExposedDropdownMenu(
-                                                                        expanded = zoneExpanded,
-                                                                        onDismissRequest = {
-                                                                                zoneExpanded = false
-                                                                        }
                                                                 ) {
-                                                                        uiState.zones.forEach { zone
-                                                                                ->
-                                                                                DropdownMenuItem(
-                                                                                        text = {
-                                                                                                Text(
-                                                                                                        zone.name
-                                                                                                )
-                                                                                        },
-                                                                                        onClick = {
-                                                                                                viewModel
-                                                                                                        .selectZone(
-                                                                                                                zone.id
-                                                                                                        )
-                                                                                                zoneExpanded =
-                                                                                                        false
-                                                                                        }
-                                                                                )
-                                                                        }
-                                                                }
-                                                        }
-                                                }
-                                        }
-
-                                        // Year + Month on same row
-                                        Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                                // Year Selector
-                                                Card(
-                                                        modifier = Modifier.weight(1f),
-                                                        colors =
-                                                                CardDefaults.cardColors(
-                                                                        containerColor =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surfaceVariant
-                                                                )
-                                                ) {
-                                                        Column(modifier = Modifier.padding(12.dp)) {
-                                                                Text(
-                                                                        text = "السنة",
-                                                                        style =
-                                                                                MaterialTheme
-                                                                                        .typography
-                                                                                        .labelSmall,
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurfaceVariant
-                                                                )
-                                                                Spacer(
-                                                                        modifier =
-                                                                                Modifier.height(
-                                                                                        4.dp
-                                                                                )
-                                                                )
-                                                                var yearExpanded by remember {
-                                                                        mutableStateOf(false)
-                                                                }
-                                                                ExposedDropdownMenuBox(
-                                                                        expanded = yearExpanded,
-                                                                        onExpandedChange = {
-                                                                                yearExpanded = it
-                                                                        }
-                                                                ) {
-                                                                        OutlinedTextField(
-                                                                                value =
-                                                                                        uiState.selectedYear
-                                                                                                .toString(),
-                                                                                onValueChange = {},
-                                                                                readOnly = true,
-                                                                                singleLine = true,
-                                                                                trailingIcon = {
-                                                                                        ExposedDropdownMenuDefaults
-                                                                                                .TrailingIcon(
-                                                                                                        expanded =
-                                                                                                                yearExpanded
-                                                                                                )
-                                                                                },
+                                                                        Text(
+                                                                                zone.name,
+                                                                                textAlign =
+                                                                                        TextAlign
+                                                                                                .Right,
                                                                                 modifier =
                                                                                         Modifier.fillMaxWidth()
-                                                                                                .menuAnchor(),
-                                                                                colors =
-                                                                                        ExposedDropdownMenuDefaults
-                                                                                                .outlinedTextFieldColors(),
-                                                                                textStyle =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .bodyMedium
                                                                         )
-                                                                        ExposedDropdownMenu(
-                                                                                expanded =
-                                                                                        yearExpanded,
-                                                                                onDismissRequest = {
-                                                                                        yearExpanded =
-                                                                                                false
-                                                                                }
-                                                                        ) {
-                                                                                uiState.availableYears
-                                                                                        .forEach {
-                                                                                                year
-                                                                                                ->
-                                                                                                DropdownMenuItem(
-                                                                                                        text = {
-                                                                                                                Text(
-                                                                                                                        year.toString()
-                                                                                                                )
-                                                                                                        },
-                                                                                                        onClick = {
-                                                                                                                viewModel
-                                                                                                                        .selectYear(
-                                                                                                                                year
-                                                                                                                        )
-                                                                                                                yearExpanded =
-                                                                                                                        false
-                                                                                                        }
-                                                                                                )
-                                                                                        }
-                                                                        }
                                                                 }
                                                         }
                                                 }
-
-                                                // Month Selector
-                                                Card(
-                                                        modifier = Modifier.weight(1f),
-                                                        colors =
-                                                                CardDefaults.cardColors(
-                                                                        containerColor =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .surfaceVariant
-                                                                )
-                                                ) {
-                                                        Column(modifier = Modifier.padding(12.dp)) {
-                                                                Text(
-                                                                        text = "الشهر",
-                                                                        style =
-                                                                                MaterialTheme
-                                                                                        .typography
-                                                                                        .labelSmall,
-                                                                        color =
-                                                                                MaterialTheme
-                                                                                        .colorScheme
-                                                                                        .onSurfaceVariant
-                                                                )
-                                                                Spacer(
-                                                                        modifier =
-                                                                                Modifier.height(
-                                                                                        4.dp
-                                                                                )
-                                                                )
-                                                                ExposedDropdownMenuBox(
-                                                                        expanded = monthExpanded,
-                                                                        onExpandedChange = {
-                                                                                monthExpanded = it
-                                                                        }
-                                                                ) {
-                                                                        OutlinedTextField(
-                                                                                value =
-                                                                                        uiState.selectedMonth
-                                                                                                .displayName,
-                                                                                onValueChange = {},
-                                                                                readOnly = true,
-                                                                                singleLine = true,
-                                                                                trailingIcon = {
-                                                                                        ExposedDropdownMenuDefaults
-                                                                                                .TrailingIcon(
-                                                                                                        expanded =
-                                                                                                                monthExpanded
-                                                                                                )
-                                                                                },
-                                                                                modifier =
-                                                                                        Modifier.fillMaxWidth()
-                                                                                                .menuAnchor(),
-                                                                                colors =
-                                                                                        ExposedDropdownMenuDefaults
-                                                                                                .outlinedTextFieldColors(),
-                                                                                textStyle =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .bodyMedium
-                                                                        )
-                                                                        ExposedDropdownMenu(
-                                                                                expanded =
-                                                                                        monthExpanded,
-                                                                                onDismissRequest = {
-                                                                                        monthExpanded =
-                                                                                                false
-                                                                                }
-                                                                        ) {
-                                                                                uiState.availableMonths
-                                                                                        .forEach {
-                                                                                                month
-                                                                                                ->
-                                                                                                DropdownMenuItem(
-                                                                                                        text = {
-                                                                                                                Row(
-                                                                                                                        horizontalArrangement =
-                                                                                                                                Arrangement
-                                                                                                                                        .SpaceBetween,
-                                                                                                                        modifier =
-                                                                                                                                Modifier.fillMaxWidth()
-                                                                                                                ) {
-                                                                                                                        Text(
-                                                                                                                                month.displayName
-                                                                                                                        )
-                                                                                                                        if (month ==
-                                                                                                                                        MonthYear
-                                                                                                                                                .current()
-                                                                                                                        ) {
-                                                                                                                                Text(
-                                                                                                                                        "(الحالي)",
-                                                                                                                                        color =
-                                                                                                                                                MaterialTheme
-                                                                                                                                                        .colorScheme
-                                                                                                                                                        .primary,
-                                                                                                                                        style =
-                                                                                                                                                MaterialTheme
-                                                                                                                                                        .typography
-                                                                                                                                                        .labelSmall
-                                                                                                                                )
-                                                                                                                        }
-                                                                                                                }
-                                                                                                        },
-                                                                                                        onClick = {
-                                                                                                                viewModel
-                                                                                                                        .selectMonth(
-                                                                                                                                month
-                                                                                                                        )
-                                                                                                                monthExpanded =
-                                                                                                                        false
-                                                                                                        }
-                                                                                                )
-                                                                                        }
-                                                                        }
-                                                                }
-                                                        }
-                                                }
-                                        }
-                                }
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Search Bar
-                                OutlinedTextField(
-                                        value = searchQuery,
-                                        onValueChange = {
-                                                searchQuery = it
-                                                viewModel.setSearchQuery(it)
                                         },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        placeholder = { Text(Strings.searchMembers) },
-                                        leadingIcon = {
-                                                Icon(
-                                                        Icons.Default.Search,
-                                                        contentDescription = null
-                                                )
-                                        },
-                                        singleLine = true
+                                        confirmButton = {}
                                 )
+                        }
 
-                                Spacer(modifier = Modifier.height(12.dp))
+                        if (yearExpanded) {
+                                AlertDialog(
+                                        onDismissRequest = { yearExpanded = false },
+                                        title = { Text("السنة") },
+                                        text = {
+                                                LazyColumn {
+                                                        items(uiState.availableYears) { year ->
+                                                                TextButton(
+                                                                        onClick = {
+                                                                                viewModel
+                                                                                        .selectYear(
+                                                                                                year
+                                                                                        )
+                                                                                yearExpanded = false
+                                                                                filterMenuExpanded =
+                                                                                        false
+                                                                        },
+                                                                        modifier =
+                                                                                Modifier.fillMaxWidth()
+                                                                ) {
+                                                                        Text(
+                                                                                year.toString(),
+                                                                                textAlign =
+                                                                                        TextAlign
+                                                                                                .Right,
+                                                                                modifier =
+                                                                                        Modifier.fillMaxWidth()
+                                                                        )
+                                                                }
+                                                        }
+                                                }
+                                        },
+                                        confirmButton = {}
+                                )
+                        }
 
+                        if (monthExpanded) {
+                                AlertDialog(
+                                        onDismissRequest = { monthExpanded = false },
+                                        title = { Text("الشهر") },
+                                        text = {
+                                                LazyColumn {
+                                                        items(uiState.availableMonths) { month ->
+                                                                TextButton(
+                                                                        onClick = {
+                                                                                viewModel
+                                                                                        .selectMonth(
+                                                                                                month
+                                                                                        )
+                                                                                monthExpanded =
+                                                                                        false
+                                                                                filterMenuExpanded =
+                                                                                        false
+                                                                        },
+                                                                        modifier =
+                                                                                Modifier.fillMaxWidth()
+                                                                ) {
+                                                                        Row(
+                                                                                horizontalArrangement =
+                                                                                        Arrangement
+                                                                                                .SpaceBetween,
+                                                                                modifier =
+                                                                                        Modifier.fillMaxWidth()
+                                                                        ) {
+                                                                                Text(
+                                                                                        month.displayName
+                                                                                )
+                                                                                if (month ==
+                                                                                                MonthYear
+                                                                                                        .current()
+                                                                                ) {
+                                                                                        Text(
+                                                                                                "(الحالي)",
+                                                                                                color =
+                                                                                                        MaterialTheme
+                                                                                                                .colorScheme
+                                                                                                                .primary
+                                                                                        )
+                                                                                }
+                                                                        }
+                                                                }
+                                                        }
+                                                }
+                                        },
+                                        confirmButton = {}
+                                )
+                        }
+
+                        Column(
+                                modifier =
+                                        Modifier.fillMaxSize()
+                                                .padding(padding)
+                                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
                                 // Table Header
-                                Card(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors =
-                                                CardDefaults.cardColors(
-                                                        containerColor =
-                                                                MaterialTheme.colorScheme
-                                                                        .primaryContainer
-                                                )
-                                ) {
-                                        Row(
-                                                modifier =
-                                                        Modifier.fillMaxWidth()
-                                                                .padding(
-                                                                        horizontal = 16.dp,
-                                                                        vertical = 12.dp
-                                                                ),
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                                Text(
-                                                        text = Strings.fullName,
-                                                        modifier = Modifier.weight(2f),
-                                                        fontWeight = FontWeight.Bold,
-                                                        style = MaterialTheme.typography.labelMedium
-                                                )
-                                                Text(
-                                                        text = Strings.meterNumber,
-                                                        modifier = Modifier.weight(1.2f),
-                                                        fontWeight = FontWeight.Bold,
-                                                        style =
-                                                                MaterialTheme.typography
-                                                                        .labelMedium,
-                                                        textAlign = TextAlign.Center
-                                                )
-                                                Text(
-                                                        text = Strings.previousReading,
-                                                        modifier = Modifier.weight(1f),
-                                                        fontWeight = FontWeight.Bold,
-                                                        style =
-                                                                MaterialTheme.typography
-                                                                        .labelMedium,
-                                                        textAlign = TextAlign.Center
-                                                )
-                                                Text(
-                                                        text = Strings.currentReading,
-                                                        modifier = Modifier.weight(1.5f),
-                                                        fontWeight = FontWeight.Bold,
-                                                        style =
-                                                                MaterialTheme.typography
-                                                                        .labelMedium,
-                                                        textAlign = TextAlign.Center
-                                                )
-                                                Text(
-                                                        text = Strings.consumption,
-                                                        modifier = Modifier.weight(1f),
-                                                        fontWeight = FontWeight.Bold,
-                                                        style =
-                                                                MaterialTheme.typography
-                                                                        .labelMedium,
-                                                        textAlign = TextAlign.Center
-                                                )
-                                        }
-                                }
+                                TableHeader()
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // Readings List - Using weight to prevent summary card overlap
+                                // Readings List
                                 Box(modifier = Modifier.weight(1f)) {
                                         if (uiState.isLoading) {
                                                 Box(
@@ -562,126 +564,124 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                         }
                                 }
 
-                                // Summary Card - Fixed at bottom
+                                // Summary Card
                                 if (uiState.enteredCount > 0 || uiState.isEditMode) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Card(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                colors =
-                                                        CardDefaults.cardColors(
-                                                                containerColor =
-                                                                        MaterialTheme.colorScheme
-                                                                                .tertiaryContainer
-                                                        )
-                                        ) {
-                                                Row(
-                                                        modifier =
-                                                                Modifier.fillMaxWidth()
-                                                                        .padding(16.dp),
-                                                        horizontalArrangement =
-                                                                Arrangement.SpaceBetween,
-                                                        verticalAlignment =
-                                                                Alignment.CenterVertically
-                                                ) {
-                                                        Row(
-                                                                horizontalArrangement =
-                                                                        Arrangement.spacedBy(32.dp)
-                                                        ) {
-                                                                Column(
-                                                                        horizontalAlignment =
-                                                                                Alignment
-                                                                                        .CenterHorizontally
-                                                                ) {
-                                                                        Text(
-                                                                                text =
-                                                                                        "${uiState.enteredCount}",
-                                                                                style =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .headlineSmall,
-                                                                                fontWeight =
-                                                                                        FontWeight
-                                                                                                .Bold
-                                                                        )
-                                                                        Text(
-                                                                                text =
-                                                                                        "قراءات مدخلة",
-                                                                                style =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .labelMedium
-                                                                        )
-                                                                }
-                                                                Column(
-                                                                        horizontalAlignment =
-                                                                                Alignment
-                                                                                        .CenterHorizontally
-                                                                ) {
-                                                                        Text(
-                                                                                text =
-                                                                                        "${uiState.totalConsumption} ${Strings.m3}",
-                                                                                style =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .headlineSmall,
-                                                                                fontWeight =
-                                                                                        FontWeight
-                                                                                                .Bold
-                                                                        )
-                                                                        Text(
-                                                                                text =
-                                                                                        "إجمالي الاستهلاك",
-                                                                                style =
-                                                                                        MaterialTheme
-                                                                                                .typography
-                                                                                                .labelMedium
-                                                                        )
-                                                                }
-                                                        }
+                                        SummaryCard(uiState, viewModel)
+                                }
+                        }
+                }
+        }
+}
 
-                                                        // Save Button
-                                                        if (uiState.isEditMode &&
-                                                                        uiState.enteredCount > 0
-                                                        ) {
-                                                                Button(
-                                                                        onClick = {
-                                                                                viewModel
-                                                                                        .saveAllReadings()
-                                                                        },
-                                                                        enabled = !uiState.isSaving
-                                                                ) {
-                                                                        if (uiState.isSaving) {
-                                                                                CircularProgressIndicator(
-                                                                                        modifier =
-                                                                                                Modifier.size(
-                                                                                                        16.dp
-                                                                                                ),
-                                                                                        strokeWidth =
-                                                                                                2.dp,
-                                                                                        color =
-                                                                                                MaterialTheme
-                                                                                                        .colorScheme
-                                                                                                        .onPrimary
-                                                                                )
-                                                                        } else {
-                                                                                Icon(
-                                                                                        Icons.Default
-                                                                                                .Save,
-                                                                                        contentDescription =
-                                                                                                null
-                                                                                )
-                                                                        }
-                                                                        Spacer(
-                                                                                modifier =
-                                                                                        Modifier.width(
-                                                                                                8.dp
-                                                                                        )
-                                                                        )
-                                                                        Text(Strings.saveReadings)
-                                                                }
-                                                        }
-                                                }
+@Composable
+fun TableHeader() {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+        ) {
+                Row(
+                        modifier =
+                                Modifier.fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                        Text(
+                                text = Strings.fullName,
+                                modifier = Modifier.weight(2f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                        )
+                        Text(
+                                text = Strings.meterNumber,
+                                modifier = Modifier.weight(1.2f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
+                        )
+                        Text(
+                                text = Strings.previousReading,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
+                        )
+                        Text(
+                                text = Strings.currentReading,
+                                modifier = Modifier.weight(1.5f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
+                        )
+                        Text(
+                                text = Strings.consumption,
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
+                        )
+                }
+        }
+}
+
+@Composable
+fun SummaryCard(uiState: MeterReadingUiState, viewModel: MeterReadingViewModel) {
+        Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                        CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+        ) {
+                Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                                text = "${uiState.enteredCount}",
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                                text = "قراءات مدخلة",
+                                                style = MaterialTheme.typography.labelMedium
+                                        )
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                                text = "${uiState.totalConsumption} ${Strings.m3}",
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                                text = "إجمالي الاستهلاك",
+                                                style = MaterialTheme.typography.labelMedium
+                                        )
+                                }
+                        }
+
+                        if (uiState.isEditMode && uiState.enteredCount > 0) {
+                                Button(
+                                        onClick = { viewModel.saveAllReadings() },
+                                        enabled = !uiState.isSaving
+                                ) {
+                                        if (uiState.isSaving) {
+                                                CircularProgressIndicator(
+                                                        modifier = Modifier.size(16.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                        } else {
+                                                Icon(Icons.Default.Save, contentDescription = null)
                                         }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(Strings.saveReadings)
                                 }
                         }
                 }
