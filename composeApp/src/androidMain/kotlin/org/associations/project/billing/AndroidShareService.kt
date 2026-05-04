@@ -37,8 +37,18 @@ class AndroidShareService(private val context: Context) : ShareService {
     }
 
     private fun generateInvoiceImage(invoice: Invoice, subscriber: Subscriber, settings: AppSettings): Bitmap {
-        val width = 800
-        val height = 1100
+        val isReceipt = settings.printFormat == "RECEIPT"
+        // 80mm thermal printer ~ 384 dots wide; A4 use the original 800px layout
+        val width = if (isReceipt) 480 else 800
+        val height = if (isReceipt) 900 else 1100
+        val margin = if (isReceipt) 24f else 60f
+        val titleSize = if (isReceipt) 32f else 48f
+        val bodySize = if (isReceipt) 22f else 28f
+        val tableSize = if (isReceipt) 20f else 28f
+        val totalSize = if (isReceipt) 30f else 40f
+        val logoSize = if (isReceipt) 110f else 160f
+        val lineGap = if (isReceipt) 26f else 35f
+
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
@@ -47,7 +57,6 @@ class AndroidShareService(private val context: Context) : ShareService {
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
         val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
-        val margin = 60f
         val contentWidth = width - margin * 2
         var y = margin
 
@@ -58,12 +67,11 @@ class AndroidShareService(private val context: Context) : ShareService {
                 if (logoFile.exists()) {
                     val logoBitmap = android.graphics.BitmapFactory.decodeFile(settings.logoPath)
                     if (logoBitmap != null) {
-                        val logoSize = 160
                         val logoLeft = (width - logoSize) / 2f
                         val src = android.graphics.Rect(0, 0, logoBitmap.width, logoBitmap.height)
                         val dst = android.graphics.RectF(logoLeft, y, logoLeft + logoSize, y + logoSize)
                         canvas.drawBitmap(logoBitmap, src, dst, null)
-                        y += logoSize + 30
+                        y += logoSize + (if (isReceipt) 16f else 30f)
                     }
                 }
             } catch (e: Exception) {
@@ -72,50 +80,51 @@ class AndroidShareService(private val context: Context) : ShareService {
         }
 
         // Header - Association Name
-        blackPaint.textSize = 48f
+        blackPaint.textSize = titleSize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         drawCenteredText(canvas, blackPaint, settings.associationName, y, width)
-        y += 55
+        y += titleSize + 8f
 
-        blackPaint.textSize = 28f
+        blackPaint.textSize = bodySize
         blackPaint.typeface = Typeface.DEFAULT
         if (settings.associationAddress.isNotBlank()) {
             drawCenteredText(canvas, blackPaint, settings.associationAddress, y, width)
-            y += 35
+            y += lineGap
         }
         if (settings.associationPhone.isNotBlank()) {
             drawCenteredText(canvas, blackPaint, settings.associationPhone, y, width)
-            y += 35
+            y += lineGap
         }
-        y += 15
+        y += 10f
 
         // Divider
         val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
         canvas.drawLine(margin, y, width - margin, y, linePaint)
-        y += 40
+        y += if (isReceipt) 26f else 40f
 
         // Title
-        blackPaint.textSize = 36f
+        blackPaint.textSize = if (isReceipt) 26f else 36f
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         drawCenteredText(canvas, blackPaint, "فاتورة استهلاك الماء", y, width)
-        y += 55
+        y += if (isReceipt) 36f else 55f
 
         // Invoice Info
-        val date = Instant.fromEpochMilliseconds(invoice.issueDate)
+        val issueDate = Instant.fromEpochMilliseconds(invoice.issueDate)
             .toLocalDateTime(TimeZone.currentSystemDefault())
 
-        blackPaint.textSize = 28f
+        blackPaint.textSize = bodySize
         blackPaint.typeface = Typeface.DEFAULT
         canvas.drawText("Invoice #: ${invoice.id}", margin, y, blackPaint)
-        canvas.drawText("Date: ${date.date}", margin, y + 35, blackPaint)
+        canvas.drawText("Date: ${issueDate.date}", margin, y + lineGap, blackPaint)
 
         // Right side - subscriber info
         drawRightAlignedText(canvas, blackPaint, subscriber.fullName, width - margin, y)
-        canvas.drawText("Meter: ${subscriber.meterNumber}", width - margin - blackPaint.measureText("Meter: ${subscriber.meterNumber}"), y + 35, blackPaint)
-        y += 80
+        val meterText = "Meter: ${subscriber.meterNumber}"
+        canvas.drawText(meterText, width - margin - blackPaint.measureText(meterText), y + lineGap, blackPaint)
+        y += lineGap * 2 + 10f
 
         // Table header
-        blackPaint.textSize = 28f
+        blackPaint.textSize = tableSize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         val col1 = margin
         val col2 = margin + contentWidth / 3
@@ -124,28 +133,47 @@ class AndroidShareService(private val context: Context) : ShareService {
         canvas.drawText("Current", col1, y, blackPaint)
         canvas.drawText("Previous", col2, y, blackPaint)
         canvas.drawText("Consumption", col3, y, blackPaint)
-        y += 10
+        y += 10f
         canvas.drawLine(margin, y, width - margin, y, linePaint)
-        y += 35
+        y += lineGap
 
         // Table row
         blackPaint.typeface = Typeface.DEFAULT
         canvas.drawText("${invoice.currentReading}", col1, y, blackPaint)
         canvas.drawText("${invoice.previousReading}", col2, y, blackPaint)
         canvas.drawText("${invoice.consumption} m\u00B3", col3, y, blackPaint)
-        y += 15
+        y += 15f
         canvas.drawLine(margin, y, width - margin, y, linePaint)
-        y += 50
+        y += if (isReceipt) 30f else 50f
 
         // Total
-        blackPaint.textSize = 40f
+        blackPaint.textSize = totalSize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         canvas.drawText("المجموع الكلي", margin, y, blackPaint)
         drawRightAlignedText(canvas, blackPaint, "${invoice.totalAmount} DH", width - margin, y)
-        y += 80
+        y += if (isReceipt) 50f else 70f
+
+        // --- Payment Deadline (notification highlight) ---
+        if (invoice.dueDate > 0) {
+            val dueDate = Instant.fromEpochMilliseconds(invoice.dueDate)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+            val boxPaint = Paint().apply { color = Color.rgb(255, 243, 224); style = Paint.Style.FILL }
+            val borderPaint = Paint().apply { color = Color.rgb(230, 81, 0); style = Paint.Style.STROKE; strokeWidth = 3f }
+            val boxHeight = if (isReceipt) 70f else 90f
+            val rect = android.graphics.RectF(margin, y, width - margin, y + boxHeight)
+            canvas.drawRoundRect(rect, 8f, 8f, boxPaint)
+            canvas.drawRoundRect(rect, 8f, 8f, borderPaint)
+
+            blackPaint.color = Color.rgb(191, 54, 12)
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            drawCenteredText(canvas, blackPaint, "اجل الدفع: ${dueDate.date}", y + boxHeight / 2 + bodySize / 3, width)
+            blackPaint.color = Color.BLACK
+            y += boxHeight + (if (isReceipt) 18f else 30f)
+        }
 
         // Footer
-        blackPaint.textSize = 28f
+        blackPaint.textSize = bodySize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
         drawCenteredText(canvas, blackPaint, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
 

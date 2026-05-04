@@ -2,7 +2,10 @@ package org.associations.project.billing
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -179,22 +182,28 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .heightIn(max = 700.dp),
+                    .padding(12.dp)
+                    .heightIn(max = 720.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
+                val vScroll = rememberScrollState()
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier
+                        .padding(12.dp)
+                        .verticalScroll(vScroll)
                 ) {
-                    Text("معاينة الطباعة", style = MaterialTheme.typography.titleMedium)
+                    Text("معاينة الطباعة", style = MaterialTheme.typography.titleMedium, color = Color.Black)
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
+                    val hScroll = rememberScrollState()
                     Box(
                         modifier = Modifier
-                            .weight(1f)
+                            .fillMaxWidth()
+                            .heightIn(min = 200.dp, max = 520.dp)
                             .border(1.dp, Color.Gray)
                             .padding(4.dp)
+                            .horizontalScroll(hScroll)
                     ) {
                         // Reconstruct objects for template
                         val mockInvoice = Invoice(
@@ -219,8 +228,6 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             isActive = 1,
                             createdAt = 0
                         )
-                        
-                        // We use a Box to contain the template. In a real app we might need scrolling if it's long.
                         InvoiceTemplate(
                             invoice = mockInvoice,
                             subscriber = mockSubscriber,
@@ -231,18 +238,18 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             logoPath = uiState.logoPath
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(onClick = {
                             viewModel.printInvoice(model.id)
                             showPrintDialog = null
                         }) {
                             Icon(Icons.Default.Print, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text("طباعة")
                         }
                         OutlinedButton(onClick = {
@@ -250,7 +257,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             showPrintDialog = null
                         }) {
                             Icon(Icons.Default.Share, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text("مشاركة")
                         }
                         TextButton(onClick = { showPrintDialog = null }) {

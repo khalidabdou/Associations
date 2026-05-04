@@ -38,14 +38,14 @@ fun ActivationScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "Device Activation", style = MaterialTheme.typography.headlineMedium)
+            Text(text = "تفعيل الجهاز", style = MaterialTheme.typography.headlineMedium)
 
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedTextField(
                     value = licenseKey,
                     onValueChange = { licenseKey = it },
-                    label = { Text("License Key") },
+                    label = { Text("مفتاح الترخيص") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
             )
@@ -64,15 +64,23 @@ fun ActivationScreen(
                             strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Activate")
+                    Text("تفعيل")
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             if (uiState is LicenseResult.Error) {
+                val raw = (uiState as LicenseResult.Error).message
+                val translated = when {
+                    raw.contains("Invalid License", ignoreCase = true) -> "مفتاح الترخيص غير صحيح"
+                    raw.contains("inactive", ignoreCase = true) -> "الترخيص غير مُفعّل"
+                    raw.contains("another device", ignoreCase = true) -> "هذا الترخيص مستخدم على جهاز آخر"
+                    raw.contains("Network", ignoreCase = true) -> "خطأ في الاتصال بالإنترنت"
+                    else -> raw
+                }
                 Text(
-                        text = (uiState as LicenseResult.Error).message,
+                        text = translated,
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium
                 )

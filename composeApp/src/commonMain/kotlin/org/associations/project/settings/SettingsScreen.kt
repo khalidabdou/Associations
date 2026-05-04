@@ -33,6 +33,10 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Re-verify activation against Supabase every time the settings screen is entered,
+    // in case the admin flipped `is_active` to false remotely.
+    LaunchedEffect(Unit) { viewModel.refreshActivationStatus() }
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -314,6 +318,13 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
                     // Backup & Data Section
                     item {
+                        val backupLauncher =
+                                org.associations.project.utils.rememberBackupLauncher(
+                                        suggestedFileName = viewModel.suggestedBackupFileName(),
+                                        onExport = { out -> viewModel.exportToStream(out) },
+                                        onImport = { input -> viewModel.importFromStream(input) },
+                                        onMessage = { msg -> viewModel.postMessage(msg) }
+                                )
                         SettingsSection(
                                 title = "النسخ الاحتياطي والبيانات",
                                 icon = Icons.Default.Storage
@@ -327,11 +338,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Button(
-                                            onClick = { viewModel.exportData() },
+                                            onClick = { backupLauncher.export() },
                                             modifier = Modifier.weight(1f)
                                     ) { Text("تصدير البيانات") }
                                     Button(
-                                            onClick = { viewModel.importData() },
+                                            onClick = { backupLauncher.import() },
                                             modifier = Modifier.weight(1f),
                                             colors =
                                                     ButtonDefaults.buttonColors(

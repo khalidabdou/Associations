@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -46,26 +47,6 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Scaffold(
                         snackbarHost = { SnackbarHost(snackbarHostState) },
-                        floatingActionButton = {
-                                if (uiState.isEditMode && uiState.enteredCount > 0) {
-                                        ExtendedFloatingActionButton(
-                                                onClick = { viewModel.saveAllReadings() },
-                                                icon = {
-                                                        if (uiState.isSaving) {
-                                                                CircularProgressIndicator(
-                                                                        modifier = Modifier.size(20.dp),
-                                                                        strokeWidth = 2.dp,
-                                                                        color = MaterialTheme.colorScheme.onPrimary
-                                                                )
-                                                        } else {
-                                                                Icon(Icons.Default.Save, contentDescription = null)
-                                                        }
-                                                },
-                                                text = { Text(Strings.saveReadings) },
-                                                expanded = !uiState.isSaving
-                                        )
-                                }
-                        },
                         topBar = {
                                 Surface(
                                         shadowElevation = 2.dp,
@@ -585,6 +566,11 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                                 if (uiState.isEditMode && !entry.hasInvoice) {
                                                                                         editDialogEntry = entry
                                                                                 }
+                                                                        },
+                                                                        onShareNotification = {
+                                                                                viewModel.shareNotification(
+                                                                                        entry.subscriberId
+                                                                                )
                                                                         }
                                                                 )
                                                         }
@@ -592,10 +578,14 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                         }
                                 }
 
-                                // Summary Card
+                                // Summary + Save bar (replaces FAB to avoid conflict with bottom nav)
                                 if (uiState.enteredCount > 0 || uiState.isEditMode) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        SummaryCard(uiState)
+                                        SummaryCard(
+                                                uiState = uiState,
+                                                showSaveAction = uiState.isEditMode && uiState.enteredCount > 0,
+                                                onSave = { viewModel.saveAllReadings() }
+                                        )
                                 }
                         }
                 }
@@ -712,7 +702,11 @@ fun TableHeader() {
 }
 
 @Composable
-fun SummaryCard(uiState: MeterReadingUiState) {
+fun SummaryCard(
+        uiState: MeterReadingUiState,
+        showSaveAction: Boolean = false,
+        onSave: () -> Unit = {}
+) {
         Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors =
@@ -721,31 +715,60 @@ fun SummaryCard(uiState: MeterReadingUiState) {
                         )
         ) {
                 Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                 ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                        text = "${uiState.enteredCount}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                        text = "قراءات مدخلة",
-                                        style = MaterialTheme.typography.labelSmall
-                                )
+                        Row(
+                                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                                text = "${uiState.enteredCount}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                                text = "قراءات مدخلة",
+                                                style = MaterialTheme.typography.labelSmall
+                                        )
+                                }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                                text = "${uiState.totalConsumption} ${Strings.m3}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                                text = "إجمالي الاستهلاك",
+                                                style = MaterialTheme.typography.labelSmall
+                                        )
+                                }
                         }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                        text = "${uiState.totalConsumption} ${Strings.m3}",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                        text = "إجمالي الاستهلاك",
-                                        style = MaterialTheme.typography.labelSmall
-                                )
+
+                        if (showSaveAction) {
+                                Button(
+                                        onClick = onSave,
+                                        enabled = !uiState.isSaving,
+                                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                        if (uiState.isSaving) {
+                                                CircularProgressIndicator(
+                                                        modifier = Modifier.size(18.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                        } else {
+                                                Icon(
+                                                        Icons.Default.Save,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.size(18.dp)
+                                                )
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(Strings.saveReadings, style = MaterialTheme.typography.labelLarge)
+                                }
                         }
                 }
         }
@@ -756,7 +779,8 @@ fun MeterReadingRow(
         entry: MeterReadingEntry,
         isEditMode: Boolean,
         onReadingChange: (String) -> Unit,
-        onClick: () -> Unit = {}
+        onClick: () -> Unit = {},
+        onShareNotification: () -> Unit = {}
 ) {
         Card(
                 onClick = onClick,
@@ -809,6 +833,8 @@ fun MeterReadingRow(
                         // Current Reading Input
                         Box(modifier = Modifier.weight(1.5f), contentAlignment = Alignment.Center) {
                                 if (isEditMode) {
+                                        val invoicedTextColor = Color(0xFF1B5E20)
+                                        val invoicedBg = Color(0xFFE8F5E9)
                                         OutlinedTextField(
                                                 value = entry.currentReading,
                                                 onValueChange = {
@@ -818,9 +844,13 @@ fun MeterReadingRow(
                                                 },
                                                 modifier = Modifier.fillMaxWidth(),
                                                 singleLine = true,
+                                                keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Number
+                                                ),
                                                 textStyle =
                                                         LocalTextStyle.current.copy(
-                                                                textAlign = TextAlign.Center
+                                                                textAlign = TextAlign.Center,
+                                                                fontWeight = FontWeight.Bold
                                                         ),
                                                 placeholder = {
                                                         Text(
@@ -829,29 +859,46 @@ fun MeterReadingRow(
                                                                         MaterialTheme.typography
                                                                                 .bodyMedium,
                                                                 textAlign = TextAlign.Center,
-                                                                modifier = Modifier.fillMaxWidth()
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
                                                         )
                                                 },
                                                 colors =
                                                         OutlinedTextFieldDefaults.colors(
+                                                                focusedTextColor =
+                                                                        if (entry.hasInvoice) invoicedTextColor
+                                                                        else MaterialTheme.colorScheme.onSurface,
+                                                                unfocusedTextColor =
+                                                                        if (entry.hasInvoice) invoicedTextColor
+                                                                        else MaterialTheme.colorScheme.onSurface,
+                                                                cursorColor = MaterialTheme.colorScheme.primary,
                                                                 focusedContainerColor =
-                                                                        if (entry.hasInvoice)
-                                                                                Color(0xFFE8F5E9)
-                                                                        else Color.Transparent,
+                                                                        if (entry.hasInvoice) invoicedBg
+                                                                        else MaterialTheme.colorScheme.surface,
                                                                 unfocusedContainerColor =
-                                                                        if (entry.hasInvoice)
-                                                                                Color(0xFFE8F5E9)
-                                                                        else Color.Transparent
+                                                                        if (entry.hasInvoice) invoicedBg
+                                                                        else MaterialTheme.colorScheme.surface
                                                         )
                                         )
                                 } else if (entry.hasInvoice) {
-                                        Text(
-                                                text = "${entry.currentReading} (تمت الفوترة)",
-                                                color = Color(0xFF2E7D32),
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                textAlign = TextAlign.Center
-                                        )
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                Text(
+                                                        text = entry.currentReading,
+                                                        color = Color(0xFF2E7D32),
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold,
+                                                        textAlign = TextAlign.Center,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                        text = "تمت الفوترة",
+                                                        color = Color(0xFF2E7D32),
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        textAlign = TextAlign.Center,
+                                                        maxLines = 1
+                                                )
+                                        }
                                 } else {
                                         Text(
                                                 text = entry.currentReading.ifBlank { "-" },
@@ -874,6 +921,21 @@ fun MeterReadingRow(
                                         if (entry.consumption > 0) MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        // Notification share button (only when invoice exists)
+                        if (entry.hasInvoice && !isEditMode) {
+                                IconButton(
+                                        onClick = onShareNotification,
+                                        modifier = Modifier.size(32.dp)
+                                ) {
+                                        Icon(
+                                                Icons.Default.Receipt,
+                                                contentDescription = "إشعار الدفع",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                        )
+                                }
+                        }
                 }
         }
 }

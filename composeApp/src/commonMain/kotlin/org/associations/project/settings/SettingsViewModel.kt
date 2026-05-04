@@ -46,14 +46,27 @@ class SettingsViewModel(
     }
 
     init {
-        // Check activation status and load settings
+        // Seed with last known local state, then re-verify against Supabase
         _uiState.update {
             it.copy(
                     isActivated = licenseRepository.isActivated(),
                     allowPastMonthEditing = settings.getBoolean(KEY_ALLOW_PAST_MONTH_EDITING, false)
             )
         }
+        refreshActivationStatus()
         loadData()
+    }
+
+    /**
+     * Re-queries Supabase to confirm the license is still active and bound to this device.
+     * Called on init so every entry to the settings screen revalidates activation. If the admin
+     * flips `is_active=false` in Supabase, this will clear the local activation flag.
+     */
+    fun refreshActivationStatus() {
+        viewModelScope.launch {
+            val stillActive = licenseRepository.verifyActivation()
+            _uiState.update { it.copy(isActivated = stillActive) }
+        }
     }
 
     private fun loadData() {
@@ -197,58 +210,37 @@ class SettingsViewModel(
 
     // ===== Backup & Restore =====
 
-    fun exportData() {
-        // Platform specific
-        // Generate filename with timestamp
-        val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds() // unique enough
-        val filename = "Association_Backup_$timestamp.db"
-
-        // Use Platform to get downloads dir (we need to expect/actual this or use System property)
-        val home = System.getProperty("user.home")
-        val downloadsPath = if (home != null) "$home/Downloads" else null
-
-        if (downloadsPath != null) {
-            val fullPath = "$downloadsPath/$filename"
-            viewModelScope.launch {
-                try {
-                    repository.exportDatabase(fullPath)
-                    showMessage("تم تصدير البيانات بنجاح إلى $fullPath")
-                } catch (e: Exception) {
-                    showMessage("فشل التصدير: ${e.message}")
-                }
-            }
-        } else {
-            // Fallback to picker if downloads not found
-            val path = org.associations.project.utils.FilePicker.pickDirectory()
-            if (path != null) {
-                viewModelScope.launch {
-                    try {
-                        repository.exportDatabase(path)
-                        showMessage("تم تصدير البيانات بنجاح إلى $path")
-                    } catch (e: Exception) {
-                        showMessage("فشل التصدير: ${e.message}")
-                    }
-                }
-            } else {
-                showMessage("لم يتم تحديد مسار التصدير")
-            }
-        }
+    /** Suggested backup filename exposed to the UI for the system file picker. */
+    fun suggestedBackupFileName(): String {
+        val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        return "Association_Backup_$timestamp.db"
     }
 
-    fun importData() {
-        val path = org.associations.project.utils.FilePicker.pickFile()
-        if (path != null) {
-            viewModelScope.launch {
-                try {
-                    repository.importDatabase(path)
-                    showMessage("تم استيراد البيانات بنجاح. يرجى إعادة تشغيل التطبيق.")
-                    // Trigger a reload or restart if possible, for now just message
-                } catch (e: Exception) {
-                    showMessage("فشل الاستيراد: ${e.message}")
-                }
-            }
-        }
+    /**
+     * Exports the database into the given [OutputStream]. The stream is provided by the
+     * platform-specific [org.associations.project.utils.rememberBackupLauncher] (Android SAF /
+     * desktop JFileChooser). Returns a [Result] so the UI layer can show a message.
+     */
+    fun exportToStream(out: java.io.OutputStream): Result<String> = try {
+        repository.exportDatabaseToStream(out)
+        Result.success("تم تصدير البيانات بنجاح")
+    } catch (e: Exception) {
+        Result.failure(e)
     }
+
+    /**
+     * Imports a database from the given [InputStream] (picked via SAF on Android, JFileChooser on
+     * desktop). Returns a [Result] so the UI layer can surface a message.
+     */
+    fun importFromStream(input: java.io.InputStream): Result<String> = try {
+        repository.importDatabaseFromStream(input)
+        Result.success("تم استيراد البيانات بنجاح. يرجى إعادة تشغيل التطبيق.")
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    /** Allows the UI layer to push a snackbar message. */
+    fun postMessage(message: String) = showMessage(message)
 
     // ===== Clear Data logic =====
     fun showClearDataDialog() {

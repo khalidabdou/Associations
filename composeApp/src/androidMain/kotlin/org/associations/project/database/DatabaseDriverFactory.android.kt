@@ -4,6 +4,10 @@ import android.content.Context
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
 
 actual class DatabaseDriverFactory(private val context: Context) {
     actual fun createDriver(): SqlDriver {
@@ -110,6 +114,21 @@ actual class DatabaseDriverFactory(private val context: Context) {
         if (sourceFile.exists()) {
             sourceFile.copyTo(dbFile, overwrite = true)
         }
+    }
+
+    actual fun exportDatabaseToStream(out: OutputStream) {
+        val dbFile = context.getDatabasePath("AppDatabase.db")
+        if (dbFile.exists()) {
+            FileInputStream(dbFile).use { input -> input.copyTo(out) }
+        } else {
+            throw IllegalStateException("Database file not found")
+        }
+    }
+
+    actual fun importDatabaseFromStream(input: InputStream) {
+        val dbFile = context.getDatabasePath("AppDatabase.db")
+        dbFile.parentFile?.mkdirs()
+        FileOutputStream(dbFile).use { output -> input.copyTo(output) }
     }
 
     actual fun clearDatabase() {

@@ -6,7 +6,10 @@ import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.*
+import org.associations.project.billing.ShareService
 import org.associations.project.database.GetSubscribersByZone
+import org.associations.project.database.Invoice
+import org.associations.project.database.Subscriber
 import org.associations.project.database.Zone
 import org.associations.project.repository.AppRepository
 import org.associations.project.utils.MonthYear
@@ -78,8 +81,11 @@ data class MeterReadingUiState(
         get() = readings.values.sumOf { it.consumption }
 }
 
-class MeterReadingViewModel(private val repository: AppRepository, private val settings: Settings) :
-        ViewModel() {
+class MeterReadingViewModel(
+        private val repository: AppRepository,
+        private val settings: Settings,
+        private val shareService: ShareService
+) : ViewModel() {
     private val _uiState = MutableStateFlow(MeterReadingUiState())
     val uiState: StateFlow<MeterReadingUiState> = _uiState.asStateFlow()
 
@@ -329,6 +335,57 @@ class MeterReadingViewModel(private val repository: AppRepository, private val s
                 showMessage("حدث خطأ: ${e.message}")
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
+            }
+        }
+    }
+
+    fun shareNotification(subscriberId: Long) {
+        viewModelScope.launch {
+            try {
+                val entry = _uiState.value.readings[subscriberId]
+                if (entry == null || entry.invoiceId == null || !entry.hasInvoice) {
+                    showMessage("حفظ القراءة أولا لإرسال الإشعار")
+                    return@launch
+                }
+
+                val appSettings = repository.getSettings().first()
+                if (appSettings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+
+                val details = repository.getInvoiceDetailsOnce(entry.invoiceId)
+                if (details == null) {
+                    showMessage("خطأ: الفاتورة غير موجودة")
+                    return@launch
+                }
+
+                val invoice = Invoice(
+                        id = details.id,
+                        subscriberId = details.subscriberId,
+                        previousReading = details.previousReading,
+                        currentReading = details.currentReading,
+                        consumption = details.consumption,
+                        totalAmount = details.totalAmount,
+                        status = details.status,
+                        issueDate = details.issueDate,
+                        dueDate = details.dueDate,
+                        isPenaltyApplied = details.isPenaltyApplied
+                )
+                val subscriber = Subscriber(
+                        id = details.subscriberId,
+                        fullName = details.subscriberName ?: entry.subscriberName,
+                        phone = null,
+                        meterNumber = details.meterNumber ?: entry.meterNumber,
+                        address = details.address,
+                        zoneId = 0,
+                        isActive = 1,
+                        createdAt = 0
+                )
+                shareService.shareInvoice(invoice, subscriber, appSettings)
+                showMessage("تم فتح إشعار الدفع للمشاركة")
+            } catch (e: Exception) {
+                showMessage("خطأ: ${e.message}")
             }
         }
     }

@@ -32,6 +32,24 @@ class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFa
         }
     }
 
+    fun exportDatabaseToStream(out: java.io.OutputStream) {
+        try {
+            driverFactory.exportDatabaseToStream(out)
+        } catch (e: Exception) {
+            println("Export error: ${e.message}")
+            throw e
+        }
+    }
+
+    fun importDatabaseFromStream(input: java.io.InputStream) {
+        try {
+            driverFactory.importDatabaseFromStream(input)
+        } catch (e: Exception) {
+            println("Import error: ${e.message}")
+            throw e
+        }
+    }
+
     fun clearDatabase() {
         // Deprecated: use clearUserData instead
         try {

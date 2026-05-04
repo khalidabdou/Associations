@@ -19,7 +19,7 @@ actual val platformModule: Module = module {
     single { DatabaseDriverFactory(get()) }
     single { get<DatabaseDriverFactory>().createDriver() }
 
-    singleOf(::AndroidPrintService) bind PrintService::class
+    single { AndroidPrintService(get<Context>()) } bind PrintService::class
     single { AndroidShareService(get<Context>()) } bind ShareService::class
     single<DeviceFingerprint> { AndroidDeviceFingerprint(get()) }
     single<Settings> {
