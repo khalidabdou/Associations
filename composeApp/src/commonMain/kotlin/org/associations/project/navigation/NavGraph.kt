@@ -30,10 +30,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import org.associations.project.billing.InvoicesListScreen
 import org.associations.project.dashboard.DashboardScreen
+import org.associations.project.maintenance.MaintenanceListScreen
 import org.associations.project.members.SubscriberDetailScreen
 import org.associations.project.members.SubscriberEntryScreen
 import org.associations.project.members.SubscriberListScreen
 import org.associations.project.meter.MeterReadingScreen
+import org.associations.project.meter.ReadingsHistoryScreen
 import org.associations.project.settings.SettingsScreen
 import org.associations.project.treasury.TreasuryScreen
 import org.associations.project.ui.Strings
@@ -83,7 +85,9 @@ fun NavGraph(
         composable<Screen.MeterReading> {
             MeterReadingScreen(onNavigateBack = { navController.popBackStack() })
         }
-        composable<Screen.ReadingsHistory> { PlaceholderScreen(title = "سجل القراءات") }
+        composable<Screen.ReadingsHistory> {
+            ReadingsHistoryScreen(onNavigateBack = { navController.popBackStack() })
+        }
         composable<Screen.InvoicesList> {
             InvoicesListScreen(onNavigateBack = { navController.popBackStack() })
         }
@@ -94,8 +98,12 @@ fun NavGraph(
         composable<Screen.Treasury> {
             TreasuryScreen(onNavigateBack = { navController.popBackStack() })
         }
-        composable<Screen.MaintenanceList> { PlaceholderScreen(title = Strings.maintenanceTickets) }
-        composable<Screen.AddTicket> { PlaceholderScreen(title = Strings.addTicket) }
+        composable<Screen.MaintenanceList> {
+            MaintenanceListScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable<Screen.AddTicket> {
+            MaintenanceListScreen(onNavigateBack = { navController.popBackStack() })
+        }
         composable<Screen.Settings> {
             SettingsScreen(
                     onNavigateBack = { navController.popBackStack() },

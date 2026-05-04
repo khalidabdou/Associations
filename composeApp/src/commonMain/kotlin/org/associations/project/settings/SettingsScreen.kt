@@ -166,6 +166,56 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                         Text("طابعة إيصالات (80mm)")
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Logo Selection
+                                Text(
+                                        text = "شعار الجمعية",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                val currentLogoPath = uiState.logoPath
+                                val imagePickerLauncher = org.associations.project.utils.rememberImagePickerLauncher { path ->
+                                    if (path != null) {
+                                        viewModel.updateLogo(path)
+                                    }
+                                }
+                                Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (currentLogoPath != null) {
+                                        Text(
+                                                text = currentLogoPath.substringAfterLast("/"),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1
+                                        )
+                                        TextButton(
+                                                onClick = { viewModel.updateLogo(null) },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                        ) {
+                                            Text("إزالة")
+                                        }
+                                    } else {
+                                        Text(
+                                                text = "لم يتم اختيار شعار",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    Button(
+                                            onClick = { imagePickerLauncher() }
+                                    ) {
+                                        Text(if (currentLogoPath != null) "تغيير" else "اختيار")
+                                    }
+                                }
                             }
                         }
                     }

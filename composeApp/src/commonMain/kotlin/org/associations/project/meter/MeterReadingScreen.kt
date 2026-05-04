@@ -3,6 +3,7 @@ package org.associations.project.meter
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -12,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -31,6 +33,7 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         var yearExpanded by remember { mutableStateOf(false) }
         var monthExpanded by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
+        var editDialogEntry by remember { mutableStateOf<MeterReadingEntry?>(null) }
         val snackbarHostState = remember { SnackbarHostState() }
 
         LaunchedEffect(uiState.message) {
@@ -43,6 +46,26 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Scaffold(
                         snackbarHost = { SnackbarHost(snackbarHostState) },
+                        floatingActionButton = {
+                                if (uiState.isEditMode && uiState.enteredCount > 0) {
+                                        ExtendedFloatingActionButton(
+                                                onClick = { viewModel.saveAllReadings() },
+                                                icon = {
+                                                        if (uiState.isSaving) {
+                                                                CircularProgressIndicator(
+                                                                        modifier = Modifier.size(20.dp),
+                                                                        strokeWidth = 2.dp,
+                                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                                )
+                                                        } else {
+                                                                Icon(Icons.Default.Save, contentDescription = null)
+                                                        }
+                                                },
+                                                text = { Text(Strings.saveReadings) },
+                                                expanded = !uiState.isSaving
+                                        )
+                                }
+                        },
                         topBar = {
                                 Surface(
                                         shadowElevation = 2.dp,
@@ -343,7 +366,7 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                 Row(
                                                         modifier =
                                                                 Modifier.fillMaxWidth()
-                                                                        .padding(top = 4.dp),
+                                                                        .padding(top = 2.dp),
                                                         horizontalArrangement =
                                                                 Arrangement.SpaceBetween,
                                                         verticalAlignment =
@@ -557,6 +580,11 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                                                 entry.subscriberId,
                                                                                                 it
                                                                                         )
+                                                                        },
+                                                                        onClick = {
+                                                                                if (uiState.isEditMode && !entry.hasInvoice) {
+                                                                                        editDialogEntry = entry
+                                                                                }
                                                                         }
                                                                 )
                                                         }
@@ -567,10 +595,66 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                 // Summary Card
                                 if (uiState.enteredCount > 0 || uiState.isEditMode) {
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        SummaryCard(uiState, viewModel)
+                                        SummaryCard(uiState)
                                 }
                         }
                 }
+        }
+
+        // Edit Dialog
+        editDialogEntry?.let { entry ->
+                var readingValue by remember { mutableStateOf(entry.currentReading) }
+                AlertDialog(
+                        onDismissRequest = { editDialogEntry = null },
+                        title = { Text(entry.subscriberName) },
+                        text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Text(
+                                                text = "${Strings.previousReading}: ${entry.previousReading}",
+                                                style = MaterialTheme.typography.bodyMedium
+                                        )
+                                        OutlinedTextField(
+                                                value = readingValue,
+                                                onValueChange = {
+                                                        readingValue = it.filter { c -> c.isDigit() }
+                                                },
+                                                label = { Text(Strings.currentReading) },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                singleLine = true,
+                                                keyboardOptions = KeyboardOptions(
+                                                        keyboardType = KeyboardType.Number
+                                                )
+                                        )
+                                        if (readingValue.isNotBlank()) {
+                                                val consumption = readingValue.toIntOrNull()?.minus(entry.previousReading) ?: 0
+                                                if (consumption >= 0) {
+                                                        Text(
+                                                                text = "${Strings.consumption}: $consumption ${Strings.m3}",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                        )
+                                                }
+                                        }
+                                }
+                        },
+                        confirmButton = {
+                                Button(
+                                        onClick = {
+                                                viewModel.updateReading(entry.subscriberId, readingValue)
+                                                editDialogEntry = null
+                                        },
+                                        enabled = readingValue.isNotBlank()
+                                ) {
+                                        Text(Strings.save)
+                                }
+                        },
+                        dismissButton = {
+                                TextButton(onClick = { editDialogEntry = null }) {
+                                        Text(Strings.cancel)
+                                }
+                        }
+                )
         }
 }
 
@@ -628,7 +712,7 @@ fun TableHeader() {
 }
 
 @Composable
-fun SummaryCard(uiState: MeterReadingUiState, viewModel: MeterReadingViewModel) {
+fun SummaryCard(uiState: MeterReadingUiState) {
         Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors =
@@ -637,52 +721,31 @@ fun SummaryCard(uiState: MeterReadingUiState, viewModel: MeterReadingViewModel) 
                         )
         ) {
                 Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
                 ) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                                text = "${uiState.enteredCount}",
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                                text = "قراءات مدخلة",
-                                                style = MaterialTheme.typography.labelMedium
-                                        )
-                                }
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Text(
-                                                text = "${uiState.totalConsumption} ${Strings.m3}",
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                                text = "إجمالي الاستهلاك",
-                                                style = MaterialTheme.typography.labelMedium
-                                        )
-                                }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                        text = "${uiState.enteredCount}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                        text = "قراءات مدخلة",
+                                        style = MaterialTheme.typography.labelSmall
+                                )
                         }
-
-                        if (uiState.isEditMode && uiState.enteredCount > 0) {
-                                Button(
-                                        onClick = { viewModel.saveAllReadings() },
-                                        enabled = !uiState.isSaving
-                                ) {
-                                        if (uiState.isSaving) {
-                                                CircularProgressIndicator(
-                                                        modifier = Modifier.size(16.dp),
-                                                        strokeWidth = 2.dp,
-                                                        color = MaterialTheme.colorScheme.onPrimary
-                                                )
-                                        } else {
-                                                Icon(Icons.Default.Save, contentDescription = null)
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(Strings.saveReadings)
-                                }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                        text = "${uiState.totalConsumption} ${Strings.m3}",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                        text = "إجمالي الاستهلاك",
+                                        style = MaterialTheme.typography.labelSmall
+                                )
                         }
                 }
         }
@@ -692,9 +755,11 @@ fun SummaryCard(uiState: MeterReadingUiState, viewModel: MeterReadingViewModel) 
 fun MeterReadingRow(
         entry: MeterReadingEntry,
         isEditMode: Boolean,
-        onReadingChange: (String) -> Unit
+        onReadingChange: (String) -> Unit,
+        onClick: () -> Unit = {}
 ) {
         Card(
+                onClick = onClick,
                 modifier = Modifier.fillMaxWidth(),
                 colors =
                         CardDefaults.cardColors(

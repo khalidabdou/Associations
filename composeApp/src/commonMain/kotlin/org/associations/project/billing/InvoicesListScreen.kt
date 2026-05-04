@@ -31,11 +31,11 @@ import kotlinx.datetime.toLocalDateTime
 fun InvoicesListScreen(onNavigateBack: () -> Unit) {
     val viewModel = koinViewModel<InvoicesViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
     var showPrintDialog by remember { mutableStateOf<InvoiceUiModel?>(null) }
-    
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -53,83 +53,85 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp)
+                    .padding(horizontal = 8.dp)
             ) {
-                // Header
-                Text(
-                    text = Strings.invoices,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Filters Row: Month Selector
+                // Compact Month Filter with Icon
                 var monthExpanded by remember { mutableStateOf(false) }
-                
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = Strings.monthFilter,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        ExposedDropdownMenuBox(
-                            expanded = monthExpanded,
-                            onExpandedChange = { monthExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.selectedMonth?.displayName ?: Strings.allMonths,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    // Month Selector (Compact)
+                    ExposedDropdownMenuBox(
+                        expanded = monthExpanded,
+                        onExpandedChange = { monthExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = uiState.selectedMonth?.displayName ?: Strings.allMonths,
+                            onValueChange = {},
+                            readOnly = true,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
                                 )
+                            },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
+                            modifier = Modifier.widthIn(max = 180.dp).menuAnchor(),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            singleLine = true,
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = monthExpanded,
+                            onDismissRequest = { monthExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(Strings.allMonths, style = MaterialTheme.typography.bodySmall) },
+                                onClick = {
+                                    viewModel.selectMonth(null)
+                                    monthExpanded = false
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = monthExpanded,
-                                onDismissRequest = { monthExpanded = false }
-                            ) {
+                            uiState.availableMonths.forEach { month ->
                                 DropdownMenuItem(
-                                    text = { Text(Strings.allMonths) },
+                                    text = { Text(month.displayName, style = MaterialTheme.typography.bodySmall) },
                                     onClick = {
-                                        viewModel.selectMonth(null)
+                                        viewModel.selectMonth(month)
                                         monthExpanded = false
                                     }
                                 )
-                                uiState.availableMonths.forEach { month ->
-                                    DropdownMenuItem(
-                                        text = { Text(month.displayName) },
-                                        onClick = {
-                                            viewModel.selectMonth(month)
-                                            monthExpanded = false
-                                        }
-                                    )
-                                }
                             }
                         }
                     }
                 }
-                
-                // Tabs
-                TabRow(selectedTabIndex = uiState.selectedTab) {
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Compact Tabs
+                TabRow(
+                    selectedTabIndex = uiState.selectedTab,
+                    modifier = Modifier.height(40.dp)
+                ) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = uiState.selectedTab == index,
                             onClick = { viewModel.selectTab(index) },
-                            text = { Text(title) }
+                            text = { 
+                                Text(
+                                    title, 
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 1
+                                ) 
+                            }
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Invoice List
                 if (uiState.isLoading) {
@@ -152,10 +154,11 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         }
                     } else {
                         LazyColumn(
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxSize()
                         ) {
                             items(invoices, key = { it.id }) { invoice ->
-                                InvoiceCard(
+                                CompactInvoiceItem(
                                     invoice = invoice,
                                     onMarkAsPaid = { viewModel.markAsPaid(invoice.id) },
                                     onMarkAsUnpaid = { viewModel.markAsUnpaid(invoice.id) },
@@ -224,7 +227,8 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             associationName = uiState.associationName,
                             associationAddress = uiState.associationAddress,
                             associationPhone = uiState.associationPhone,
-                            printFormat = uiState.printFormat
+                            printFormat = uiState.printFormat,
+                            logoPath = uiState.logoPath
                         )
                     }
                     
@@ -233,13 +237,21 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Button(onClick = { 
+                        Button(onClick = {
                             viewModel.printInvoice(model.id)
-                            showPrintDialog = null 
+                            showPrintDialog = null
                         }) {
                             Icon(Icons.Default.Print, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("طباعة")
+                        }
+                        OutlinedButton(onClick = {
+                            viewModel.shareInvoice(model.id)
+                            showPrintDialog = null
+                        }) {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("مشاركة")
                         }
                         TextButton(onClick = { showPrintDialog = null }) {
                             Text("إغلاق")
@@ -277,7 +289,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
 }
 
 @Composable
-fun InvoiceCard(
+fun CompactInvoiceItem(
     invoice: InvoiceUiModel,
     onMarkAsPaid: () -> Unit,
     onMarkAsUnpaid: () -> Unit,
@@ -285,80 +297,116 @@ fun InvoiceCard(
     onPrint: () -> Unit
 ) {
     val isPaid = invoice.status == "PAID"
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isPaid) 
-                MaterialTheme.colorScheme.surfaceVariant 
-            else 
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-        )
+            containerColor = if (isPaid)
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+            else
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left: Name and details
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = invoice.subscriberName ?: "-",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(
-                        text = "${Strings.consumption}: ${invoice.consumption} ${Strings.m3}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatDate(invoice.issueDate),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            
-            Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = "${invoice.totalAmount} ${Strings.dhs}",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "${formatCompactDate(invoice.issueDate)} · ${invoice.consumption}${Strings.m3}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+
+            // Right: Amount and actions
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "${invoice.totalAmount.toInt()}",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (isPaid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row {
-                    IconButton(onClick = onPrint) {
-                        Icon(Icons.Default.Print, contentDescription = "Print", tint = MaterialTheme.colorScheme.primary)
+                Text(
+                    text = Strings.dhs,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Compact action icons
+                IconButton(
+                    onClick = onPrint,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Print,
+                        contentDescription = "Print",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                if (isPaid) {
+                    IconButton(
+                        onClick = onMarkAsUnpaid,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Undo,
+                            contentDescription = "Mark as unpaid",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    if (isPaid) {
-                        IconButton(onClick = onMarkAsUnpaid) {
-                            Icon(Icons.Default.Undo, contentDescription = "Mark as unpaid", tint = MaterialTheme.colorScheme.primary)
-                        }
-                    } else {
-                        IconButton(onClick = onMarkAsPaid) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = "Mark as paid", tint = MaterialTheme.colorScheme.primary)
-                        }
+                } else {
+                    IconButton(
+                        onClick = onMarkAsPaid,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = "Mark as paid",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = Strings.delete, tint = MaterialTheme.colorScheme.error)
-                    }
+                }
+
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = Strings.delete,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
         }
     }
 }
 
-fun formatDate(timestamp: Long): String {
-    return try {
-        val instant = Instant.fromEpochMilliseconds(timestamp)
-        val datetime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-        "${datetime.dayOfMonth}/${datetime.monthNumber}/${datetime.year}"
-    } catch (e: Exception) {
-        "-"
-    }
+// Compact date formatter for mobile
+private fun formatCompactDate(epochMillis: Long): String {
+    val instant = Instant.fromEpochMilliseconds(epochMillis)
+    val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
+    return "${localDate.dayOfMonth}/${localDate.monthNumber}/${localDate.year}"
 }
+

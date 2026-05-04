@@ -4,7 +4,9 @@ import android.content.Context
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.SharedPreferencesSettings
 import org.associations.project.billing.AndroidPrintService
+import org.associations.project.billing.AndroidShareService
 import org.associations.project.billing.PrintService
+import org.associations.project.billing.ShareService
 import org.associations.project.database.DatabaseDriverFactory
 import org.associations.project.security.AndroidDeviceFingerprint
 import org.associations.project.security.DeviceFingerprint
@@ -18,6 +20,7 @@ actual val platformModule: Module = module {
     single { get<DatabaseDriverFactory>().createDriver() }
 
     singleOf(::AndroidPrintService) bind PrintService::class
+    single { AndroidShareService(get<Context>()) } bind ShareService::class
     single<DeviceFingerprint> { AndroidDeviceFingerprint(get()) }
     single<Settings> {
         val context = get<Context>()

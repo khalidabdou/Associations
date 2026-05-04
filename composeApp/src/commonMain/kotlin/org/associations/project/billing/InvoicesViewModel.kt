@@ -41,13 +41,15 @@ data class InvoicesUiState(
     val associationAddress: String = "",
     val associationPhone: String = "",
     val printFormat: String = "A4",
+    val logoPath: String? = null,
     val isLoading: Boolean = true,
     val message: String? = null
 )
 
 class InvoicesViewModel(
     private val repository: AppRepository,
-    private val printService: PrintService // Injected
+    private val printService: PrintService, // Injected
+    private val shareService: ShareService  // Injected
 ) : ViewModel() {
     // ...
     // Existing code ...
@@ -107,14 +109,64 @@ class InvoicesViewModel(
                 
                 printService.printInvoice(invoiceEntity, subscriberEntity, settings)
                 showMessage("تم إرسال الفاتورة للطباعة")
-                
+
             } catch (e: Exception) {
                 showMessage("خطأ في الطباعة: ${e.message}")
                 e.printStackTrace()
             }
         }
     }
-    
+
+    fun shareInvoice(invoiceId: Long) {
+        viewModelScope.launch {
+            try {
+                // Fetch full details
+                val settings = repository.getSettings().first()
+                if (settings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+
+                val details = repository.getInvoiceDetailsOnce(invoiceId)
+                if (details == null) {
+                    showMessage("خطأ: الفاتورة غير موجودة")
+                    return@launch
+                }
+
+                val invoiceEntity = Invoice(
+                    id = details.id,
+                    subscriberId = details.subscriberId,
+                    previousReading = details.previousReading,
+                    currentReading = details.currentReading,
+                    consumption = details.consumption,
+                    totalAmount = details.totalAmount,
+                    status = details.status,
+                    issueDate = details.issueDate,
+                    dueDate = details.dueDate,
+                    isPenaltyApplied = details.isPenaltyApplied
+                )
+
+                val subscriberEntity = Subscriber(
+                    id = details.subscriberId,
+                    fullName = details.subscriberName ?: "Unknown",
+                    phone = null,
+                    meterNumber = details.meterNumber ?: "",
+                    address = details.address,
+                    zoneId = 0,
+                    isActive = 1,
+                    createdAt = 0
+                )
+
+                shareService.shareInvoice(invoiceEntity, subscriberEntity, settings)
+                showMessage("تم فتح الفاتورة للمشاركة")
+
+            } catch (e: Exception) {
+                showMessage("خطأ في المشاركة: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
     // ... existing functions
 
     private val _uiState = MutableStateFlow(InvoicesUiState())
@@ -168,7 +220,7 @@ class InvoicesViewModel(
             ) { invoices: List<InvoiceUiModel>, settings: AppSettings? ->
                 Pair(invoices, settings)
             }.collect { (all, settings) ->
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
                         allInvoices = all,
                         unpaidInvoices = all.filter { inv -> inv.status == "UNPAID" },
@@ -177,6 +229,7 @@ class InvoicesViewModel(
                         associationAddress = settings?.associationAddress ?: "",
                         associationPhone = settings?.associationPhone ?: "",
                         printFormat = settings?.printFormat ?: "A4",
+                        logoPath = settings?.logoPath,
                         isLoading = false,
                         selectedMonth = selectedMonthFlow.value
                     )

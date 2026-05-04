@@ -11,4 +11,9 @@ actual object FilePicker {
         // Android file picking requires ActivityResultContract (lifecycle-aware, async)
         return null
     }
+
+    actual fun pickImageFile(): String? {
+        // Android file picking requires ActivityResultContract (lifecycle-aware, async)
+        return null
+    }
 }

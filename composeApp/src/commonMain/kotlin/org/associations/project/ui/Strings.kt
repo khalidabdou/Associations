@@ -186,4 +186,5 @@ object Strings {
     const val errorOccurred = "حدث خطأ"
     const val requiredField = "هذا الحقل مطلوب"
     const val m3 = "م³"
+    const val optional = "اختياري"
 }
