@@ -32,9 +32,21 @@ class AndroidPrintService(private val context: Context) : PrintService {
             subscriber: Subscriber,
             settings: AppSettings
     ) {
-        val bitmap = generateInvoiceImage(invoice, subscriber, settings)
+        printInvoices(
+            items = listOf(invoice to subscriber),
+            settings = settings,
+            jobName = "Invoice #${invoice.id} - ${subscriber.fullName}",
+        )
+    }
+
+    override suspend fun printInvoices(
+            items: List<Pair<Invoice, Subscriber>>,
+            settings: AppSettings,
+            jobName: String,
+    ) {
+        if (items.isEmpty()) return
+        val bitmaps = items.map { (inv, sub) -> generateInvoiceImage(inv, sub, settings) }
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
-        val jobName = "Invoice #${invoice.id} - ${subscriber.fullName}"
 
         val attributes = PrintAttributes.Builder().apply {
             if (settings.printFormat == "RECEIPT") {
@@ -60,7 +72,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
                 }
                 val info = PrintDocumentInfo.Builder(jobName)
                         .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                        .setPageCount(1)
+                        .setPageCount(bitmaps.size)
                         .build()
                 callback.onLayoutFinished(info, newAttributes == oldAttributes)
             }
@@ -77,10 +89,12 @@ class AndroidPrintService(private val context: Context) : PrintService {
                 }
 
                 val pdfDocument = PdfDocument()
-                val pageInfo = PdfDocument.PageInfo.Builder(bitmap.width, bitmap.height, 1).create()
-                val page = pdfDocument.startPage(pageInfo)
-                page.canvas.drawBitmap(bitmap, 0f, 0f, null)
-                pdfDocument.finishPage(page)
+                bitmaps.forEachIndexed { index, bmp ->
+                    val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    page.canvas.drawBitmap(bmp, 0f, 0f, null)
+                    pdfDocument.finishPage(page)
+                }
 
                 try {
                     FileOutputStream(destination.fileDescriptor).use { output ->

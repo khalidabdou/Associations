@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.ui.Strings
 import org.associations.project.utils.MonthYear
+import org.associations.project.utils.rememberCsvImportLauncher
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +36,13 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
         var monthExpanded by remember { mutableStateOf(false) }
         var searchQuery by remember { mutableStateOf("") }
         var editDialogEntry by remember { mutableStateOf<MeterReadingEntry?>(null) }
+        var showCsvHelp by remember { mutableStateOf(false) }
         val snackbarHostState = remember { SnackbarHostState() }
+
+        val csvLauncher = rememberCsvImportLauncher(
+                onImport = { stream -> viewModel.importReadingsFromCsv(stream) },
+                onMessage = { msg -> viewModel.showExternalMessage(msg) }
+        )
 
         LaunchedEffect(uiState.message) {
                 uiState.message?.let {
@@ -340,6 +347,32 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                                         }
                                                                                 )
                                                                         }
+
+                                                                        Divider()
+
+                                                                        // Import readings from CSV
+                                                                        if (uiState.isCurrentMonth) {
+                                                                                DropdownMenuItem(
+                                                                                        text = { Text("استيراد قراءات من CSV") },
+                                                                                        onClick = {
+                                                                                                filterMenuExpanded = false
+                                                                                                csvLauncher.import()
+                                                                                        },
+                                                                                        leadingIcon = {
+                                                                                                Icon(Icons.Default.UploadFile, null, Modifier.size(18.dp))
+                                                                                        }
+                                                                                )
+                                                                                DropdownMenuItem(
+                                                                                        text = { Text("صيغة ملف CSV") },
+                                                                                        onClick = {
+                                                                                                filterMenuExpanded = false
+                                                                                                showCsvHelp = true
+                                                                                        },
+                                                                                        leadingIcon = {
+                                                                                                Icon(Icons.Default.Info, null, Modifier.size(18.dp))
+                                                                                        }
+                                                                                )
+                                                                        }
                                                                 }
                                                         }
                                                 }
@@ -519,14 +552,27 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
+                                // Selection action bar (visible when items are selected OR when there are invoiced rows in non-edit mode)
+                                if (!uiState.isEditMode && uiState.invoicedReadings.isNotEmpty()) {
+                                        SelectionActionBar(
+                                                selectedCount = uiState.selectedIds.size,
+                                                isAllSelected = uiState.isAllInvoicedSelected,
+                                                isPrinting = uiState.isPrinting,
+                                                onToggleSelectAll = { viewModel.toggleSelectAllInvoiced() },
+                                                onPrintSelected = { viewModel.printSelected() },
+                                                onClear = { viewModel.clearSelection() }
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                }
+
                                 // Readings List
                                 Box(modifier = Modifier.weight(1f)) {
-                                        if (uiState.isLoading) {
-                                                Box(
-                                                        modifier = Modifier.fillMaxSize(),
-                                                        contentAlignment = Alignment.Center
-                                                ) { CircularProgressIndicator() }
-                                        } else if (uiState.filteredReadings.isEmpty()) {
+                                if (uiState.isLoading) {
+                                        Box(
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentAlignment = Alignment.Center
+                                        ) { CircularProgressIndicator() }
+                                } else if (uiState.filteredReadings.isEmpty()) {
                                                 Box(
                                                         modifier = Modifier.fillMaxSize(),
                                                         contentAlignment = Alignment.Center
@@ -555,6 +601,7 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                         entry = entry,
                                                                         isEditMode =
                                                                                 uiState.isEditMode,
+                                                                        isSelected = entry.subscriberId in uiState.selectedIds,
                                                                         onReadingChange = {
                                                                                 viewModel
                                                                                         .updateReading(
@@ -565,7 +612,12 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                                                         onClick = {
                                                                                 if (uiState.isEditMode && !entry.hasInvoice) {
                                                                                         editDialogEntry = entry
+                                                                                } else if (!uiState.isEditMode && entry.hasInvoice) {
+                                                                                        viewModel.toggleSelection(entry.subscriberId)
                                                                                 }
+                                                                        },
+                                                                        onToggleSelect = {
+                                                                                viewModel.toggleSelection(entry.subscriberId)
                                                                         },
                                                                         onShareNotification = {
                                                                                 viewModel.shareNotification(
@@ -589,6 +641,55 @@ fun MeterReadingScreen(onNavigateBack: () -> Unit) {
                                 }
                         }
                 }
+        }
+
+        // CSV format help dialog
+        if (showCsvHelp) {
+                AlertDialog(
+                        onDismissRequest = { showCsvHelp = false },
+                        title = { Text("صيغة ملف CSV لاستيراد القراءات") },
+                        text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                                "الأعمدة المطلوبة (السطر الأول):",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                        Surface(
+                                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                                shape = MaterialTheme.shapes.small
+                                        ) {
+                                                Text(
+                                                        text = "month,year,meter_number,subscriber_name,current_reading\n" +
+                                                                "${uiState.selectedMonth.month},${uiState.selectedMonth.year},8837883,abdellah,2000",
+                                                        modifier = Modifier.padding(8.dp),
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        textAlign = TextAlign.Start
+                                                )
+                                        }
+                                        Text(
+                                                "• يجب أن تطابق قيمة month/year الشهر المحدد حاليا (${uiState.selectedMonth.month}/${uiState.selectedMonth.year}).",
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(
+                                                "• يتم مطابقة المشترك أولا برقم العداد ثم بالاسم.",
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(
+                                                "• القراءات سيتم حفظها كفواتير تلقائيا.",
+                                                style = MaterialTheme.typography.bodySmall
+                                        )
+                                        Text(
+                                                "اسم الملف المقترح: readings_${uiState.selectedMonth.year}_${uiState.selectedMonth.month.toString().padStart(2,'0')}.csv",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.primary
+                                        )
+                                }
+                        },
+                        confirmButton = {
+                                TextButton(onClick = { showCsvHelp = false }) { Text("حسنا") }
+                        }
+                )
         }
 
         // Edit Dialog
@@ -775,11 +876,70 @@ fun SummaryCard(
 }
 
 @Composable
+fun SelectionActionBar(
+        selectedCount: Int,
+        isAllSelected: Boolean,
+        isPrinting: Boolean,
+        onToggleSelectAll: () -> Unit,
+        onPrintSelected: () -> Unit,
+        onClear: () -> Unit,
+) {
+        Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth()
+        ) {
+                Row(
+                        modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                        checked = isAllSelected,
+                                        onCheckedChange = { onToggleSelectAll() }
+                                )
+                                Text(
+                                        text = if (selectedCount > 0) "محدد: $selectedCount" else "تحديد الكل",
+                                        style = MaterialTheme.typography.bodyMedium
+                                )
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                if (selectedCount > 0) {
+                                        TextButton(onClick = onClear) { Text("إلغاء") }
+                                }
+                                Button(
+                                        onClick = onPrintSelected,
+                                        enabled = selectedCount > 0 && !isPrinting,
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                        if (isPrinting) {
+                                                CircularProgressIndicator(
+                                                        modifier = Modifier.size(16.dp),
+                                                        strokeWidth = 2.dp,
+                                                        color = MaterialTheme.colorScheme.onPrimary
+                                                )
+                                        } else {
+                                                Icon(Icons.Default.Print, null, Modifier.size(16.dp))
+                                        }
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("طباعة المحدد", style = MaterialTheme.typography.labelMedium)
+                                }
+                        }
+                }
+        }
+}
+
+@Composable
 fun MeterReadingRow(
         entry: MeterReadingEntry,
         isEditMode: Boolean,
+        isSelected: Boolean = false,
         onReadingChange: (String) -> Unit,
         onClick: () -> Unit = {},
+        onToggleSelect: () -> Unit = {},
         onShareNotification: () -> Unit = {}
 ) {
         Card(
@@ -807,10 +967,19 @@ fun MeterReadingRow(
                 Row(
                         modifier =
                                 Modifier.fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                 ) {
+                        // Selection checkbox visible only for invoiced rows in non-edit mode
+                        if (entry.hasInvoice && !isEditMode) {
+                                Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { onToggleSelect() },
+                                        modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                        }
                         Text(
                                 text = entry.subscriberName,
                                 modifier = Modifier.weight(2f),
