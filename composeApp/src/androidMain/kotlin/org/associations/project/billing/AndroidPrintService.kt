@@ -183,10 +183,41 @@ class AndroidPrintService(private val context: Context) : PrintService {
         y += if (isReceipt) 30f else 50f
 
         // Title
+        val isPaid = invoice.status == "PAID"
+        val penaltyApplied = invoice.isPenaltyApplied == 1L
+        val penaltyValue = if (penaltyApplied) settings.lateFeeAmount else 0.0
+        val monthlyFeeValue = if (settings.monthlyFixedFee > 0.0) settings.monthlyFixedFee else 0.0
+        val waterChargeValue = (invoice.totalAmount - penaltyValue - monthlyFeeValue).coerceAtLeast(0.0)
+
         blackPaint.textSize = if (isReceipt) 34f else 48f
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        drawCenteredText(canvas, blackPaint, "فاتورة استهلاك الماء", y, width)
+        drawCenteredText(
+            canvas, blackPaint,
+            if (isPaid) "وصل دفع فاتورة الماء" else "فاتورة استهلاك الماء",
+            y, width
+        )
         y += if (isReceipt) 44f else 70f
+
+        // Paid stamp under title
+        if (isPaid) {
+            val stampPaint = Paint().apply {
+                color = Color.rgb(46, 125, 50); style = Paint.Style.STROKE; strokeWidth = 3f
+                isAntiAlias = true
+            }
+            blackPaint.color = Color.rgb(27, 94, 32)
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            val stampText = "✓ مدفوعة"
+            val tw = blackPaint.measureText(stampText)
+            val pad = if (isReceipt) 12f else 20f
+            val boxLeft = (width - tw) / 2f - pad
+            val boxRight = (width + tw) / 2f + pad
+            val boxBottom = y + bodySize + 8f
+            canvas.drawRoundRect(RectF(boxLeft, y - bodySize, boxRight, boxBottom), 6f, 6f, stampPaint)
+            drawCenteredText(canvas, blackPaint, stampText, y, width)
+            blackPaint.color = Color.BLACK
+            y += boxBottom - (y - bodySize) + 6f
+        }
 
         // Info
         val issueDate = Instant.fromEpochMilliseconds(invoice.issueDate)
@@ -194,22 +225,24 @@ class AndroidPrintService(private val context: Context) : PrintService {
 
         blackPaint.textSize = bodySize
         blackPaint.typeface = Typeface.DEFAULT
-        canvas.drawText("Invoice #: ${invoice.id}", margin, y, blackPaint)
-        canvas.drawText("Date: ${issueDate.date}", margin, y + lineGap, blackPaint)
-        drawRightAlignedText(canvas, blackPaint, subscriber.fullName, width - margin, y)
-        val meterText = "Meter: ${subscriber.meterNumber}"
-        canvas.drawText(meterText, width - margin - blackPaint.measureText(meterText), y + lineGap, blackPaint)
-        y += lineGap * 2 + 12f
+        // Right-aligned Arabic labels (label: value)
+        drawRightAlignedText(canvas, blackPaint, "رقم الفاتورة: #${invoice.id}", width - margin, y)
+        canvas.drawText(subscriber.fullName, margin, y, blackPaint)
+        y += lineGap
+        val dateLabel = if (isPaid) "تاريخ الدفع" else "التاريخ"
+        drawRightAlignedText(canvas, blackPaint, "$dateLabel: ${issueDate.date}", width - margin, y)
+        canvas.drawText("العداد: ${subscriber.meterNumber}", margin, y, blackPaint)
+        y += lineGap + 12f
 
-        // Table header
+        // Table header (Arabic, RTL ordering)
         blackPaint.textSize = tableSize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         val col1 = margin
         val col2 = margin + contentWidth / 3
         val col3 = margin + contentWidth * 2 / 3
-        canvas.drawText("Current", col1, y, blackPaint)
-        canvas.drawText("Previous", col2, y, blackPaint)
-        canvas.drawText("Consumption", col3, y, blackPaint)
+        canvas.drawText("الحالية", col1, y, blackPaint)
+        canvas.drawText("السابقة", col2, y, blackPaint)
+        canvas.drawText("الاستهلاك", col3, y, blackPaint)
         y += 12f
         canvas.drawLine(margin, y, width - margin, y, linePaint)
         y += lineGap
@@ -218,20 +251,59 @@ class AndroidPrintService(private val context: Context) : PrintService {
         blackPaint.typeface = Typeface.DEFAULT
         canvas.drawText("${invoice.currentReading}", col1, y, blackPaint)
         canvas.drawText("${invoice.previousReading}", col2, y, blackPaint)
-        canvas.drawText("${invoice.consumption} m\u00B3", col3, y, blackPaint)
+        canvas.drawText("${invoice.consumption} م³", col3, y, blackPaint)
         y += 18f
         canvas.drawLine(margin, y, width - margin, y, linePaint)
-        y += if (isReceipt) 36f else 60f
+        y += if (isReceipt) 24f else 40f
+
+        // Breakdown (charges + monthly fee + penalty)
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.DEFAULT
+        drawRightAlignedText(canvas, blackPaint, "استهلاك الماء", width - margin, y)
+        canvas.drawText("${formatAmount(waterChargeValue)} درهم", margin, y, blackPaint)
+        y += lineGap
+        if (monthlyFeeValue > 0.0) {
+            drawRightAlignedText(canvas, blackPaint, "الرسوم الشهرية", width - margin, y)
+            canvas.drawText("${formatAmount(monthlyFeeValue)} درهم", margin, y, blackPaint)
+            y += lineGap
+        }
+        if (penaltyValue > 0.0) {
+            blackPaint.color = Color.rgb(191, 54, 12)
+            drawRightAlignedText(canvas, blackPaint, "غرامة التأخير", width - margin, y)
+            canvas.drawText("${formatAmount(penaltyValue)} درهم", margin, y, blackPaint)
+            blackPaint.color = Color.BLACK
+            y += lineGap
+        }
+        y += if (isReceipt) 8f else 16f
 
         // Total
         blackPaint.textSize = totalSize
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        canvas.drawText("المجموع الكلي", margin, y, blackPaint)
-        drawRightAlignedText(canvas, blackPaint, "${invoice.totalAmount} DH", width - margin, y)
-        y += if (isReceipt) 60f else 90f
+        if (isPaid) blackPaint.color = Color.rgb(27, 94, 32)
+        drawRightAlignedText(canvas, blackPaint, "المجموع الكلي", width - margin, y)
+        canvas.drawText("${formatAmount(invoice.totalAmount)} درهم", margin, y, blackPaint)
+        blackPaint.color = Color.BLACK
+        y += if (isReceipt) 50f else 80f
 
-        // Due date notification
-        if (invoice.dueDate > 0) {
+        // Status box
+        if (isPaid) {
+            val boxPaint = Paint().apply { color = Color.rgb(232, 245, 233); style = Paint.Style.FILL }
+            val borderPaint = Paint().apply { color = Color.rgb(46, 125, 50); style = Paint.Style.STROKE; strokeWidth = 3f }
+            val boxHeight = if (isReceipt) 80f else 110f
+            val rect = RectF(margin, y, width - margin, y + boxHeight)
+            canvas.drawRoundRect(rect, 8f, 8f, boxPaint)
+            canvas.drawRoundRect(rect, 8f, 8f, borderPaint)
+            blackPaint.color = Color.rgb(27, 94, 32)
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            drawCenteredText(
+                canvas, blackPaint,
+                "مدفوعة ✓ تاريخ الدفع: ${issueDate.date}",
+                y + boxHeight / 2 + bodySize / 3, width
+            )
+            blackPaint.color = Color.BLACK
+            y += boxHeight + (if (isReceipt) 24f else 40f)
+        } else if (invoice.dueDate > 0) {
             val dueDate = Instant.fromEpochMilliseconds(invoice.dueDate)
                     .toLocalDateTime(TimeZone.currentSystemDefault())
             val boxPaint = Paint().apply { color = Color.rgb(255, 243, 224); style = Paint.Style.FILL }
@@ -254,6 +326,11 @@ class AndroidPrintService(private val context: Context) : PrintService {
         drawCenteredText(canvas, blackPaint, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
 
         return bitmap
+    }
+
+    private fun formatAmount(value: Double): String {
+        val rounded = (value * 100).toLong() / 100.0
+        return if (rounded % 1.0 == 0.0) rounded.toLong().toString() else rounded.toString()
     }
 
     private fun drawCenteredText(canvas: Canvas, paint: Paint, text: String, y: Float, imgWidth: Int) {

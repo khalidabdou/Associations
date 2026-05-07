@@ -187,4 +187,48 @@ object Strings {
     const val requiredField = "هذا الحقل مطلوب"
     const val m3 = "م³"
     const val optional = "اختياري"
+
+    // Invoice template / printing
+    const val invoiceNumber = "رقم الفاتورة"
+    const val waterInvoiceTitle = "فاتورة استهلاك الماء"
+    const val paymentReceiptTitle = "وصل دفع فاتورة الماء"
+    const val subscriberLabel = "المشترك"
+    const val meterShort = "العداد"
+    const val previousShort = "السابقة"
+    const val currentShort = "الحالية"
+    const val consumptionShort = "الاستهلاك"
+    const val total = "المجموع الكلي"
+    const val waterCharges = "استهلاك الماء"
+    const val penaltyLabel = "غرامة التأخير"
+    const val monthlyFeeLabel = "الرسوم الشهرية"
+    const val paymentDeadline = "اجل الدفع"
+    const val paidStamp = "مدفوعة"
+    const val paymentDate = "تاريخ الدفع"
+    const val thanksMessage = "شكرا لالتزامكم بتسديد واجباتكم"
+    const val printPreview = "معاينة الطباعة"
+    const val share = "مشاركة"
+    const val dirhamShort = "درهم"
+
+    // Multi-select / bulk print
+    const val selectAll = "تحديد الكل"
+    const val clearSelection = "إلغاء التحديد"
+    const val printSelected = "طباعة المحددة"
+    const val itemsSelected = "محددة"
+
+    // Mark as paid dialog
+    const val markPaidTitle = "تأكيد الدفع"
+    const val markPaidQuestion = "هل تم استلام الدفع لهذه الفاتورة؟"
+    const val yes = "نعم"
+    const val no = "لا"
+
+    // Delete with code confirmation
+    const val deleteInvoiceTitle = "حذف الفاتورة"
+    const val deleteInvoiceMessage = "لتأكيد الحذف، أدخل الرمز التالي:"
+    const val deleteCodeLabel = "رمز التأكيد"
+    const val deleteCodeMismatch = "الرمز غير صحيح"
+
+    // Print copies
+    const val printCopiesTitle = "عدد النسخ"
+    const val copies = "نسخة"
+    const val printCountInvoices = "طباعة {count} فاتورة × {copies} نسخة"
 }

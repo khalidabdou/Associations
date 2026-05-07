@@ -1,13 +1,16 @@
 package org.associations.project.billing
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,9 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import kotlin.random.Random
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
@@ -38,6 +43,8 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
     var showPrintDialog by remember { mutableStateOf<InvoiceUiModel?>(null) }
+    var showMarkPaidDialog by remember { mutableStateOf<Long?>(null) }
+    var showPrintCopiesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
@@ -47,10 +54,21 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
     }
 
     val tabs = listOf(Strings.unpaidInvoices, Strings.paidInvoices, Strings.allInvoices)
+    val inSelectionMode = uiState.selectedIds.isNotEmpty()
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                if (inSelectionMode) {
+                    SelectionTopBar(
+                        count = uiState.selectedIds.size,
+                        onSelectAll = { viewModel.selectAllVisible() },
+                        onClear = { viewModel.clearSelection() },
+                        onPrint = { showPrintCopiesDialog = true }
+                    )
+                }
+            }
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -163,7 +181,10 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             items(invoices, key = { it.id }) { invoice ->
                                 CompactInvoiceItem(
                                     invoice = invoice,
-                                    onMarkAsPaid = { viewModel.markAsPaid(invoice.id) },
+                                    inSelectionMode = inSelectionMode,
+                                    isSelected = uiState.selectedIds.contains(invoice.id),
+                                    onToggleSelect = { viewModel.toggleSelection(invoice.id) },
+                                    onMarkAsPaid = { showMarkPaidDialog = invoice.id },
                                     onMarkAsUnpaid = { viewModel.markAsUnpaid(invoice.id) },
                                     onDelete = { showDeleteDialog = invoice.id },
                                     onPrint = { showPrintDialog = invoice }
@@ -216,7 +237,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             status = model.status,
                             issueDate = model.issueDate,
                             dueDate = model.dueOrPaidDate ?: 0,
-                            isPenaltyApplied = 0
+                            isPenaltyApplied = model.isPenaltyApplied
                         )
                         val mockSubscriber = Subscriber(
                             id = 0,
@@ -235,7 +256,9 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             associationAddress = uiState.associationAddress,
                             associationPhone = uiState.associationPhone,
                             printFormat = uiState.printFormat,
-                            logoPath = uiState.logoPath
+                            logoPath = uiState.logoPath,
+                            lateFeeAmount = uiState.lateFeeAmount,
+                            monthlyFixedFee = uiState.monthlyFixedFee
                         )
                     }
 
@@ -250,7 +273,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         }) {
                             Icon(Icons.Default.Print, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("طباعة")
+                            Text(Strings.print)
                         }
                         OutlinedButton(onClick = {
                             viewModel.shareInvoice(model.id)
@@ -258,10 +281,10 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         }) {
                             Icon(Icons.Default.Share, contentDescription = null)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("مشاركة")
+                            Text(Strings.share)
                         }
                         TextButton(onClick = { showPrintDialog = null }) {
-                            Text("إغلاق")
+                            Text(Strings.close)
                         }
                     }
                 }
@@ -269,35 +292,213 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
         }
     }
 
-    // Delete Dialog
-    showDeleteDialog?.let { invoiceId ->
+    // Print Copies Dialog
+    if (showPrintCopiesDialog) {
+        var copies by remember { mutableStateOf(1) }
         AlertDialog(
-            onDismissRequest = { showDeleteDialog = null },
-            title = { Text(Strings.delete) },
-            text = { Text(Strings.confirmDelete) },
+            onDismissRequest = { showPrintCopiesDialog = false },
+            icon = { Icon(Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(Strings.printCopiesTitle) },
+            text = {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = Strings.printCountInvoices
+                            .replace("{count}", "${uiState.selectedIds.size}")
+                            .replace("{copies}", "$copies"),
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        FilledIconButton(
+                            onClick = { copies = (copies - 1).coerceAtLeast(1) },
+                            enabled = copies > 1
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = null)
+                        }
+                        Text(
+                            text = "$copies",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        FilledIconButton(
+                            onClick = { copies = (copies + 1).coerceAtMost(20) },
+                            enabled = copies < 20
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = Strings.copies,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteInvoice(invoiceId)
-                        showDeleteDialog = null
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(Strings.delete)
+                Button(onClick = {
+                    viewModel.printSelectedInvoices(copies)
+                    showPrintCopiesDialog = false
+                }) {
+                    Icon(Icons.Default.Print, contentDescription = null)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(Strings.print)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteDialog = null }) {
+                TextButton(onClick = { showPrintCopiesDialog = false }) {
                     Text(Strings.cancel)
                 }
+            }
+        )
+    }
+
+    // Mark-as-paid Yes/No Dialog
+    showMarkPaidDialog?.let { invoiceId ->
+        AlertDialog(
+            onDismissRequest = { showMarkPaidDialog = null },
+            icon = { Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(Strings.markPaidTitle) },
+            text = { Text(Strings.markPaidQuestion) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.markAsPaid(invoiceId)
+                    showMarkPaidDialog = null
+                }) {
+                    Text(Strings.yes)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMarkPaidDialog = null }) {
+                    Text(Strings.no)
+                }
+            }
+        )
+    }
+
+    // Delete Dialog with code confirmation
+    showDeleteDialog?.let { invoiceId ->
+        DeleteWithCodeDialog(
+            onDismiss = { showDeleteDialog = null },
+            onConfirm = {
+                viewModel.deleteInvoice(invoiceId)
+                showDeleteDialog = null
             }
         )
     }
 }
 
 @Composable
+private fun DeleteWithCodeDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val expectedCode = remember { Random.nextInt(1000, 9999).toString() }
+    var entered by remember { mutableStateOf("") }
+    var showError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text(Strings.deleteInvoiceTitle) },
+        text = {
+            Column {
+                Text(Strings.deleteInvoiceMessage)
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = expectedCode,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = entered,
+                    onValueChange = {
+                        entered = it.filter { c -> c.isDigit() }.take(4)
+                        showError = false
+                    },
+                    label = { Text(Strings.deleteCodeLabel) },
+                    singleLine = true,
+                    isError = showError,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (showError) {
+                    Text(
+                        Strings.deleteCodeMismatch,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = entered.length == 4,
+                onClick = {
+                    if (entered == expectedCode) onConfirm() else showError = true
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Text(Strings.delete)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(Strings.cancel) }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectionTopBar(
+    count: Int,
+    onSelectAll: () -> Unit,
+    onClear: () -> Unit,
+    onPrint: () -> Unit
+) {
+    TopAppBar(
+        title = { Text("$count ${Strings.itemsSelected}") },
+        navigationIcon = {
+            IconButton(onClick = onClear) {
+                Icon(Icons.Default.Close, contentDescription = Strings.clearSelection)
+            }
+        },
+        actions = {
+            IconButton(onClick = onSelectAll) {
+                Icon(Icons.Default.SelectAll, contentDescription = Strings.selectAll)
+            }
+            IconButton(onClick = onPrint) {
+                Icon(Icons.Default.Print, contentDescription = Strings.printSelected)
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    )
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 fun CompactInvoiceItem(
     invoice: InvoiceUiModel,
+    inSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelect: () -> Unit = {},
     onMarkAsPaid: () -> Unit,
     onMarkAsUnpaid: () -> Unit,
     onDelete: () -> Unit,
@@ -306,14 +507,20 @@ fun CompactInvoiceItem(
     val isPaid = invoice.status == "PAID"
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                onLongClick = onToggleSelect,
+                onClick = { if (inSelectionMode) onToggleSelect() }
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isPaid)
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-            else
-                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            containerColor = when {
+                isSelected -> MaterialTheme.colorScheme.primaryContainer
+                isPaid -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                else -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+            }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 3.dp else 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -322,6 +529,13 @@ fun CompactInvoiceItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (inSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onToggleSelect() }
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+            }
             // Left: Name and details
             Column(modifier = Modifier.weight(1f)) {
                 Text(

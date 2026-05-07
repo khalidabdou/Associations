@@ -20,6 +20,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
+import org.associations.project.ui.Strings
 
 @Composable
 fun InvoiceTemplate(
@@ -30,8 +31,15 @@ fun InvoiceTemplate(
     associationPhone: String,
     printFormat: String, // "A4" or "RECEIPT"
     logoPath: String? = null,
+    lateFeeAmount: Double = 0.0,
+    monthlyFixedFee: Double = 0.0,
     modifier: Modifier = Modifier
 ) {
+    val isPaid = invoice.status == "PAID"
+    val penaltyApplied = invoice.isPenaltyApplied == 1L
+    val penaltyValue = if (penaltyApplied) lateFeeAmount else 0.0
+    val monthlyFeeValue = if (monthlyFixedFee > 0.0) monthlyFixedFee else 0.0
+    val waterChargeValue = (invoice.totalAmount - penaltyValue - monthlyFeeValue).coerceAtLeast(0.0)
     val isReceipt = printFormat == "RECEIPT"
     val padding = if (isReceipt) 12.dp else 32.dp
     val width = if (isReceipt) 320.dp else 595.dp // Approx A4 width in dp at 72dpi, Receipt 80mm
@@ -78,21 +86,34 @@ fun InvoiceTemplate(
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp), color = borderColor)
 
-        Text(
-            text = "فاتورة استهلاك الماء",
-            fontSize = fontSizeMedium,
-            fontWeight = FontWeight.Bold,
-            color = Color.Black,
-            modifier = Modifier.padding(bottom = 10.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = if (isPaid) Strings.paymentReceiptTitle else Strings.waterInvoiceTitle,
+                fontSize = fontSizeMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+            if (isPaid) {
+                Spacer(modifier = Modifier.width(8.dp))
+                PaidBadge(fontSize = fontSizeSmall)
+            }
+        }
 
         // --- INVOICE INFO ---
-        InfoRow("رقم الفاتورة", "#${invoice.id}", fontSizeSmall)
+        InfoRow(Strings.invoiceNumber, "#${invoice.id}", fontSizeSmall)
         val date = Instant.fromEpochMilliseconds(invoice.issueDate)
             .toLocalDateTime(TimeZone.currentSystemDefault())
-        InfoRow("التاريخ", date.date.toString(), fontSizeSmall)
-        InfoRow("المشترك", subscriber.fullName, fontSizeSmall, valueBold = true)
-        InfoRow("رقم العداد", subscriber.meterNumber, fontSizeSmall)
+        InfoRow(
+            label = if (isPaid) Strings.paymentDate else Strings.date,
+            value = date.date.toString(),
+            fontSize = fontSizeSmall
+        )
+        InfoRow(Strings.subscriberLabel, subscriber.fullName, fontSizeSmall, valueBold = true)
+        InfoRow(Strings.meterShort, subscriber.meterNumber, fontSizeSmall)
 
         Spacer(modifier = Modifier.height(14.dp))
 
@@ -108,9 +129,9 @@ fun InvoiceTemplate(
                     .background(Color(0xFFF2F2F2))
                     .padding(horizontal = 6.dp, vertical = 8.dp)
             ) {
-                TableHeaderCell("الاستهلاك", fontSizeSmall, Modifier.weight(1f))
-                TableHeaderCell("السابقة", fontSizeSmall, Modifier.weight(1f))
-                TableHeaderCell("الحالية", fontSizeSmall, Modifier.weight(1f))
+                TableHeaderCell(Strings.consumptionShort, fontSizeSmall, Modifier.weight(1f))
+                TableHeaderCell(Strings.previousShort, fontSizeSmall, Modifier.weight(1f))
+                TableHeaderCell(Strings.currentShort, fontSizeSmall, Modifier.weight(1f))
             }
             HorizontalDivider(color = borderColor)
             Row(
@@ -118,7 +139,7 @@ fun InvoiceTemplate(
                     .fillMaxWidth()
                     .padding(horizontal = 6.dp, vertical = 10.dp)
             ) {
-                TableCell("${invoice.consumption} m³", fontSizeSmall, Modifier.weight(1f), bold = true)
+                TableCell("${invoice.consumption} ${Strings.m3}", fontSizeSmall, Modifier.weight(1f), bold = true)
                 TableCell(invoice.previousReading.toString(), fontSizeSmall, Modifier.weight(1f))
                 TableCell(invoice.currentReading.toString(), fontSizeSmall, Modifier.weight(1f))
             }
@@ -126,32 +147,74 @@ fun InvoiceTemplate(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // --- BREAKDOWN (charges, monthly fee, penalty) ---
+        Column(modifier = Modifier.fillMaxWidth()) {
+            BreakdownRow(Strings.waterCharges, waterChargeValue, fontSizeSmall)
+            if (monthlyFeeValue > 0.0) {
+                BreakdownRow(Strings.monthlyFeeLabel, monthlyFeeValue, fontSizeSmall)
+            }
+            if (penaltyValue > 0.0) {
+                BreakdownRow(
+                    label = Strings.penaltyLabel,
+                    amount = penaltyValue,
+                    fontSize = fontSizeSmall,
+                    valueColor = Color(0xFFBF360C)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
         // --- TOTAL ---
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFF2F2F2), RoundedCornerShape(6.dp))
+                .background(
+                    if (isPaid) Color(0xFFE8F5E9) else Color(0xFFF2F2F2),
+                    RoundedCornerShape(6.dp)
+                )
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "المجموع الكلي",
+                text = Strings.total,
                 fontSize = fontSizeLarge,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
             )
             Text(
-                text = "${invoice.totalAmount} DH",
+                text = "${formatAmount(invoice.totalAmount)} ${Strings.dirhamShort}",
                 fontSize = fontSizeTotal,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black,
+                color = if (isPaid) Color(0xFF1B5E20) else Color.Black,
                 maxLines = 1
             )
         }
 
-        // --- PAYMENT DEADLINE (notification highlight) ---
-        if (invoice.dueDate > 0) {
+        // --- PAYMENT STATUS BOX ---
+        if (isPaid) {
+            Spacer(modifier = Modifier.height(12.dp))
+            val paidDate = Instant.fromEpochMilliseconds(invoice.issueDate)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(2.dp, Color(0xFF2E7D32), RoundedCornerShape(6.dp))
+                    .background(Color(0xFFE8F5E9), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${Strings.paidStamp} ✓ ${Strings.paymentDate}: ${paidDate.date}",
+                    fontSize = fontSizeMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1B5E20),
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else if (invoice.dueDate > 0) {
             Spacer(modifier = Modifier.height(12.dp))
             val due = Instant.fromEpochMilliseconds(invoice.dueDate)
                 .toLocalDateTime(TimeZone.currentSystemDefault())
@@ -165,7 +228,7 @@ fun InvoiceTemplate(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "اجل الدفع: ${due.date}",
+                    text = "${Strings.paymentDeadline}: ${due.date}",
                     fontSize = fontSizeMedium,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFFBF360C),
@@ -178,13 +241,57 @@ fun InvoiceTemplate(
 
         // --- FOOTER ---
         Text(
-            text = "شكرا لالتزامكم بتسديد واجباتكم",
+            text = Strings.thanksMessage,
             fontSize = fontSizeSmall,
             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
             color = mutedColor,
             textAlign = TextAlign.Center
         )
     }
+}
+
+@Composable
+private fun PaidBadge(fontSize: androidx.compose.ui.unit.TextUnit) {
+    Box(
+        modifier = Modifier
+            .border(2.dp, Color(0xFF2E7D32), RoundedCornerShape(4.dp))
+            .background(Color(0xFFE8F5E9), RoundedCornerShape(4.dp))
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = Strings.paidStamp,
+            fontSize = fontSize,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF1B5E20)
+        )
+    }
+}
+
+@Composable
+private fun BreakdownRow(
+    label: String,
+    amount: Double,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    valueColor: Color = Color.Black
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, fontSize = fontSize, color = Color(0xFF555555))
+        Text(
+            text = "${formatAmount(amount)} ${Strings.dirhamShort}",
+            fontSize = fontSize,
+            fontWeight = FontWeight.SemiBold,
+            color = valueColor,
+            maxLines = 1
+        )
+    }
+}
+
+private fun formatAmount(value: Double): String {
+    val rounded = (value * 100).toLong() / 100.0
+    return if (rounded % 1.0 == 0.0) rounded.toLong().toString() else rounded.toString()
 }
 
 @Composable
