@@ -12,6 +12,10 @@ import java.awt.print.Printable
 import java.awt.print.PrinterJob
 import java.awt.Color
 import java.awt.BasicStroke
+import java.awt.GraphicsEnvironment
+import java.awt.image.BufferedImage
+import java.io.File
+import javax.imageio.ImageIO
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -40,6 +44,19 @@ class DesktopPrintService : PrintService {
     private fun rightAlignString(g2d: Graphics2D, text: String, y: Int, rightX: Int) {
         val textWidth = g2d.fontMetrics.stringWidth(text)
         g2d.drawString(text, rightX - textWidth, y)
+    }
+
+    private fun getArabicFont(style: Int, size: Int): Font {
+        val candidates = listOf("Arial", "Tahoma", "Segoe UI", "Noto Sans Arabic", "Droid Sans Arabic")
+        for (family in candidates) {
+            try {
+                val font = Font(family, style, size)
+                if (font.canDisplay('ا')) return font
+            } catch (_: Exception) {
+                // ignore and try next candidate
+            }
+        }
+        return Font("Dialog", style, size)
     }
 
     override suspend fun printInvoice(invoice: Invoice, subscriber: Subscriber, settings: AppSettings) {
@@ -278,12 +295,30 @@ class DesktopPrintService : PrintService {
                 val contentWidth = width - marginX * 2
                 var y = 40
 
+                // Logo
+                if (!settings.logoPath.isNullOrBlank()) {
+                    try {
+                        val logoFile = File(settings.logoPath)
+                        if (logoFile.exists()) {
+                            val logo: BufferedImage? = ImageIO.read(logoFile)
+                            if (logo != null) {
+                                val logoSize = 60
+                                val logoLeft = (width - logoSize) / 2
+                                g2d.drawImage(logo, logoLeft, y, logoSize, logoSize, null)
+                                y += logoSize + 10
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("Error loading logo for print: ${e.message}")
+                    }
+                }
+
                 // Header
-                g2d.font = Font("Dialog", Font.BOLD, 20)
+                g2d.font = getArabicFont(Font.BOLD, 20)
                 g2d.color = Color.BLACK
                 centerString(g2d, settings.associationName, y, width)
                 y += 25
-                g2d.font = Font("Dialog", Font.PLAIN, 12)
+                g2d.font = getArabicFont(Font.PLAIN, 12)
                 if (settings.associationAddress.isNotBlank()) {
                     centerString(g2d, settings.associationAddress, y, width)
                     y += 15
@@ -300,7 +335,7 @@ class DesktopPrintService : PrintService {
                 y += 25
 
                 // Title
-                g2d.font = Font("Dialog", Font.BOLD, 18)
+                g2d.font = getArabicFont(Font.BOLD, 18)
                 centerString(g2d, "إشعار دفع", y, width)
                 y += 35
 
@@ -312,7 +347,7 @@ class DesktopPrintService : PrintService {
                 g2d.color = Color.BLACK
 
                 // Subscriber info
-                g2d.font = Font("Dialog", Font.PLAIN, 12)
+                g2d.font = getArabicFont(Font.PLAIN, 12)
                 val labelX = marginX + 20
                 val valueX = width - marginX - 20
                 g2d.drawString("المشترك:", labelX, y)
@@ -327,7 +362,7 @@ class DesktopPrintService : PrintService {
 
                 // Amount due
                 g2d.color = Color(191, 54, 12)
-                g2d.font = Font("Dialog", Font.BOLD, 14)
+                g2d.font = getArabicFont(Font.BOLD, 14)
                 g2d.drawString("المبلغ المستحق:", labelX, y)
                 rightAlignString(g2d, "${formatAmount(invoice.totalAmount)} درهم", y, valueX)
                 g2d.color = Color.BLACK
@@ -340,18 +375,11 @@ class DesktopPrintService : PrintService {
                     g2d.color = Color(230, 81, 0)
                     g2d.drawRoundRect(marginX, y - 5, contentWidth, 40, 8, 8)
                     g2d.color = Color(191, 54, 12)
-                    g2d.font = Font("Dialog", Font.BOLD, 12)
+                    g2d.font = getArabicFont(Font.BOLD, 12)
                     centerString(g2d, "اجل الدفع: ${formatDate(invoice.dueDate)}", y + 22, width)
                     g2d.color = Color.BLACK
                     y += 55
                 }
-
-                // Reminder message
-                g2d.font = Font("Dialog", Font.BOLD, 13)
-                centerString(g2d, "يرجى الإسراع بتسديد واجب الاستهلاك", y, width)
-                y += 25
-                g2d.font = Font("Dialog", Font.ITALIC, 12)
-                centerString(g2d, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
 
                 return Printable.PAGE_EXISTS
             }

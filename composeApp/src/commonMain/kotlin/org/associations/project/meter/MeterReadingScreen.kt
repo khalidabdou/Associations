@@ -869,6 +869,13 @@ fun TableHeader() {
                                 style = MaterialTheme.typography.labelMedium,
                                 textAlign = TextAlign.Center
                         )
+                        Text(
+                                text = "المبلغ",
+                                modifier = Modifier.weight(1f),
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
+                                textAlign = TextAlign.Center
+                        )
                 }
         }
 }
@@ -1163,31 +1170,37 @@ fun MeterReadingRow(
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
-                        // Notification print and share buttons (only when invoice exists)
+                        if (entry.hasInvoice && entry.invoiceAmount != null) {
+                                Text(
+                                        text = "${entry.invoiceAmount.toInt()} د.م",
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+                        } else {
+                                Text(
+                                        text = "-",
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                        }
+
+                        // Print button (only when invoice exists)
                         if (entry.hasInvoice && !isEditMode) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        IconButton(
-                                                onClick = onPrintNotification,
-                                                modifier = Modifier.size(32.dp)
-                                        ) {
-                                                Icon(
-                                                        Icons.Default.Print,
-                                                        contentDescription = "طباعة الإشعار",
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(18.dp)
-                                                )
-                                        }
-                                        IconButton(
-                                                onClick = onShareNotification,
-                                                modifier = Modifier.size(32.dp)
-                                        ) {
-                                                Icon(
-                                                        Icons.Default.Receipt,
-                                                        contentDescription = "إشعار الدفع",
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(18.dp)
-                                                )
-                                        }
+                                IconButton(
+                                        onClick = onPrintNotification,
+                                        modifier = Modifier.size(32.dp)
+                                ) {
+                                        Icon(
+                                                Icons.Default.Print,
+                                                contentDescription = "طباعة الإشعار",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                        )
                                 }
                         }
                 }

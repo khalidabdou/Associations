@@ -24,7 +24,8 @@ data class MeterReadingEntry(
         val currentReading: String = "",
         val consumption: Long = 0,
         val hasInvoice: Boolean = false,
-        val invoiceId: Long? = null
+        val invoiceId: Long? = null,
+        val invoiceAmount: Double? = null
 )
 
 data class MeterReadingUiState(

@@ -430,11 +430,6 @@ class AndroidPrintService(private val context: Context) : PrintService {
             y += boxHeight + (if (isReceipt) 24f else 40f)
         }
 
-        // Footer
-        blackPaint.textSize = bodySize
-        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-        drawCenteredText(canvas, blackPaint, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
-
         return bitmap
     }
 
@@ -558,15 +553,6 @@ class AndroidPrintService(private val context: Context) : PrintService {
             blackPaint.color = Color.BLACK
             y += dueBoxH + (if (isReceipt) 24f else 40f)
         }
-
-        // Reminder message
-        y += 30f
-        blackPaint.textSize = bodySize
-        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-        drawCenteredText(canvas, blackPaint, "يرجى الإسراع بتسديد واجب الاستهلاك", y, width)
-        y += lineGap + 10f
-        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
-        drawCenteredText(canvas, blackPaint, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
 
         return bitmap
     }
