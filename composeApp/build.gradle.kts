@@ -1,4 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.io.File
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -93,6 +94,12 @@ compose.desktop {
             description = "Water Association Management System"
             vendor = "Associations Project"
             
+            // Include required JVM modules for SQLite JDBC driver
+            modules("java.sql", "java.naming", "jdk.unsupported")
+            
+            // Include all JAR files in the distribution
+            includeAllModules = true
+            
             windows {
                 menuGroup = "Associations"
                 shortcut = true
@@ -105,4 +112,58 @@ compose.desktop {
 
 sqldelight {
     databases { create("AppDatabase") { packageName.set("org.associations.project.database") } }
+}
+
+val windowsSignPfx = providers.environmentVariable("WINDOWS_SIGN_PFX")
+val windowsSignPfxPassword = providers.environmentVariable("WINDOWS_SIGN_PFX_PASSWORD")
+val windowsSignTimestampUrl = providers.environmentVariable("WINDOWS_SIGN_TIMESTAMP_URL")
+    .orElse("http://timestamp.digicert.com")
+val signToolPath = providers.environmentVariable("SIGNTOOL_PATH").orElse("signtool")
+
+tasks.register("signWindowsDist") {
+    dependsOn("packageMsi")
+
+    doLast {
+        if (!windowsSignPfx.isPresent) {
+            logger.lifecycle("WINDOWS_SIGN_PFX is not set; skipping Windows code signing.")
+            return@doLast
+        }
+        if (!windowsSignPfxPassword.isPresent) {
+            throw GradleException("WINDOWS_SIGN_PFX_PASSWORD is not set; cannot sign Windows artifacts.")
+        }
+
+        val pfxFile = File(windowsSignPfx.get())
+        if (!pfxFile.exists()) {
+            throw GradleException("Signing certificate not found at: ${pfxFile.absolutePath}")
+        }
+
+        val artifacts = fileTree(buildDir).matching {
+            include("**/*.msi")
+            include("**/*.exe")
+        }.files
+
+        if (artifacts.isEmpty()) {
+            throw GradleException("No .msi/.exe artifacts found under: ${buildDir.absolutePath}")
+        }
+
+        artifacts.forEach { artifact ->
+            exec {
+                commandLine(
+                    signToolPath.get(),
+                    "sign",
+                    "/f",
+                    pfxFile.absolutePath,
+                    "/p",
+                    windowsSignPfxPassword.get(),
+                    "/fd",
+                    "sha256",
+                    "/tr",
+                    windowsSignTimestampUrl.get(),
+                    "/td",
+                    "sha256",
+                    artifact.absolutePath
+                )
+            }
+        }
+    }
 }

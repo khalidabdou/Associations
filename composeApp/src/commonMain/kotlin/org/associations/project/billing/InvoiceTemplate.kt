@@ -34,6 +34,11 @@ fun InvoiceTemplate(
     val fontSizeSmall = if (isReceipt) 10.sp else 12.sp
     val fontSizeMedium = if (isReceipt) 12.sp else 14.sp
     val fontSizeLarge = if (isReceipt) 16.sp else 20.sp
+    
+    // Define colors for the invoice
+    val primaryGreen = Color(0xFF2E7D32) // Dark green for headers
+    val accentRed = Color(0xFFD32F2F) // Red for total amount
+    val textGray = Color(0xFF424242) // Dark gray for regular text
 
     Column(
         modifier = modifier
@@ -47,21 +52,22 @@ fun InvoiceTemplate(
             text = associationName,
             fontSize = fontSizeLarge,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = primaryGreen
         )
         if (associationAddress.isNotBlank()) {
-            Text(associationAddress, fontSize = fontSizeSmall, color = Color.DarkGray)
+            Text(associationAddress, fontSize = fontSizeSmall, color = textGray)
         }
         if (associationPhone.isNotBlank()) {
-            Text(associationPhone, fontSize = fontSizeSmall, color = Color.DarkGray)
+            Text(associationPhone, fontSize = fontSizeSmall, color = textGray)
         }
         
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = Color.Black)
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = primaryGreen)
         
         Text(
             text = "فاتورة استهلاك الماء",
             fontSize = fontSizeMedium,
             fontWeight = FontWeight.Bold,
+            color = primaryGreen,
             modifier = Modifier.padding(bottom = 8.dp)
         )
         
@@ -71,14 +77,14 @@ fun InvoiceTemplate(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
-                Text("رقم الفاتورة: #${invoice.id}", fontSize = fontSizeSmall)
+                Text("رقم الفاتورة: #${invoice.id}", fontSize = fontSizeSmall, color = textGray)
                 val date = Instant.fromEpochMilliseconds(invoice.issueDate)
                     .toLocalDateTime(TimeZone.currentSystemDefault())
-                Text("التاريخ: ${date.date}", fontSize = fontSizeSmall)
+                Text("التاريخ: ${date.date}", fontSize = fontSizeSmall, color = textGray)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(subscriber.fullName, fontSize = fontSizeMedium, fontWeight = FontWeight.Bold)
-                Text("عداد رقم: ${subscriber.meterNumber}", fontSize = fontSizeSmall)
+                Text(subscriber.fullName, fontSize = fontSizeMedium, fontWeight = FontWeight.Bold, color = primaryGreen)
+                Text("عداد رقم: ${subscriber.meterNumber}", fontSize = fontSizeSmall, color = textGray)
             }
         }
         
@@ -95,28 +101,29 @@ fun InvoiceTemplate(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color.Black)
+                    .background(primaryGreen.copy(alpha = 0.1f))
+                    .border(1.dp, primaryGreen)
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("القراءة الحالية", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold)
-                Text("القراءة السابقة", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold)
-                Text("الاستهلاك", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold)
+                Text("القراءة الحالية", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold, color = primaryGreen)
+                Text("القراءة السابقة", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold, color = primaryGreen)
+                Text("الاستهلاك", fontSize = fontSizeSmall, fontWeight = FontWeight.Bold, color = primaryGreen)
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, Color.Black) // Simple border for now
+                    .border(1.dp, primaryGreen)
                     .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(invoice.currentReading.toString(), fontSize = fontSizeSmall)
-                Text(invoice.previousReading.toString(), fontSize = fontSizeSmall)
-                Text("${invoice.consumption} m3", fontSize = fontSizeSmall)
+                Text(invoice.currentReading.toString(), fontSize = fontSizeSmall, color = textGray)
+                Text(invoice.previousReading.toString(), fontSize = fontSizeSmall, color = textGray)
+                Text("${invoice.consumption} m3", fontSize = fontSizeSmall, color = textGray)
             }
         }
         
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = primaryGreen)
         
         // --- TOTAL ---
         Row(
@@ -127,12 +134,14 @@ fun InvoiceTemplate(
             Text(
                 text = "المجموع الكلي",
                 fontSize = fontSizeLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = primaryGreen
             )
             Text(
                 text = "${invoice.totalAmount} DH",
                 fontSize = fontSizeLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
+                color = accentRed
             )
         }
         
@@ -142,18 +151,21 @@ fun InvoiceTemplate(
         Text(
             text = "شكرا لالتزامكم بتسديد واجباتكم",
             fontSize = fontSizeSmall,
-            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            color = primaryGreen
         )
     }
 }
 
 @Composable
 fun ReceiptRow(label: String, value: String, isBold: Boolean = false) {
+    val primaryGreen = Color(0xFF2E7D32)
+    val textGray = Color(0xFF424242)
     Row(
         modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, fontSize = 12.sp, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal)
-        Text(value, fontSize = 12.sp, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal)
+        Text(label, fontSize = 12.sp, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = primaryGreen)
+        Text(value, fontSize = 12.sp, fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal, color = textGray)
     }
 }
