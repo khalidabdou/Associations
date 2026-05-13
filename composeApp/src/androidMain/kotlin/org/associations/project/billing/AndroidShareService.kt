@@ -1,0 +1,207 @@
+package org.associations.project.billing
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
+import android.net.Uri
+import androidx.core.content.FileProvider
+import org.associations.project.database.AppSettings
+import org.associations.project.database.Invoice
+import org.associations.project.database.Subscriber
+import java.io.File
+import java.io.FileOutputStream
+import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+
+class AndroidShareService(private val context: Context) : ShareService {
+    override suspend fun shareInvoice(invoice: Invoice, subscriber: Subscriber, settings: AppSettings) {
+        val bitmap = generateInvoiceImage(invoice, subscriber, settings)
+        val uri = saveAndGetUri(bitmap, invoice.id)
+
+        if (uri != null) {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, "فاتورة ${invoice.id} - ${settings.associationName}")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            val chooser = Intent.createChooser(shareIntent, "مشاركة الفاتورة")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
+        }
+    }
+
+    private fun generateInvoiceImage(invoice: Invoice, subscriber: Subscriber, settings: AppSettings): Bitmap {
+        val isReceipt = settings.printFormat == "RECEIPT"
+        // 80mm thermal printer ~ 384 dots wide; A4 use the original 800px layout
+        val width = if (isReceipt) 480 else 800
+        val height = if (isReceipt) 900 else 1100
+        val margin = if (isReceipt) 24f else 60f
+        val titleSize = if (isReceipt) 32f else 48f
+        val bodySize = if (isReceipt) 22f else 28f
+        val tableSize = if (isReceipt) 20f else 28f
+        val totalSize = if (isReceipt) 30f else 40f
+        val logoSize = if (isReceipt) 110f else 160f
+        val lineGap = if (isReceipt) 26f else 35f
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        // White background
+        val bgPaint = Paint().apply { color = Color.WHITE }
+        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+
+        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
+        val contentWidth = width - margin * 2
+        var y = margin
+
+        // Draw logo if available
+        if (!settings.logoPath.isNullOrBlank()) {
+            try {
+                val logoFile = File(settings.logoPath)
+                if (logoFile.exists()) {
+                    val logoBitmap = android.graphics.BitmapFactory.decodeFile(settings.logoPath)
+                    if (logoBitmap != null) {
+                        val logoLeft = (width - logoSize) / 2f
+                        val src = android.graphics.Rect(0, 0, logoBitmap.width, logoBitmap.height)
+                        val dst = android.graphics.RectF(logoLeft, y, logoLeft + logoSize, y + logoSize)
+                        canvas.drawBitmap(logoBitmap, src, dst, null)
+                        y += logoSize + (if (isReceipt) 16f else 30f)
+                    }
+                }
+            } catch (e: Exception) {
+                println("Error loading logo for share: ${e.message}")
+            }
+        }
+
+        // Header - Association Name
+        blackPaint.textSize = titleSize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        drawCenteredText(canvas, blackPaint, settings.associationName, y, width)
+        y += titleSize + 8f
+
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.DEFAULT
+        if (settings.associationAddress.isNotBlank()) {
+            drawCenteredText(canvas, blackPaint, settings.associationAddress, y, width)
+            y += lineGap
+        }
+        if (settings.associationPhone.isNotBlank()) {
+            drawCenteredText(canvas, blackPaint, settings.associationPhone, y, width)
+            y += lineGap
+        }
+        y += 10f
+
+        // Divider
+        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+        canvas.drawLine(margin, y, width - margin, y, linePaint)
+        y += if (isReceipt) 26f else 40f
+
+        // Title
+        blackPaint.textSize = if (isReceipt) 26f else 36f
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        drawCenteredText(canvas, blackPaint, "فاتورة استهلاك الماء", y, width)
+        y += if (isReceipt) 36f else 55f
+
+        // Invoice Info
+        val issueDate = Instant.fromEpochMilliseconds(invoice.issueDate)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.DEFAULT
+        canvas.drawText("رقم الفاتورة: ${invoice.id}", margin, y, blackPaint)
+        canvas.drawText("التاريخ: ${issueDate.date}", margin, y + lineGap, blackPaint)
+
+        // Right side - subscriber info
+        drawRightAlignedText(canvas, blackPaint, subscriber.fullName, width - margin, y)
+        val meterText = "العداد: ${subscriber.meterNumber}"
+        canvas.drawText(meterText, width - margin - blackPaint.measureText(meterText), y + lineGap, blackPaint)
+        y += lineGap * 2 + 10f
+
+        // Table header
+        blackPaint.textSize = tableSize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val col1 = margin
+        val col2 = margin + contentWidth / 3
+        val col3 = margin + contentWidth * 2 / 3
+
+        canvas.drawText("الحالية", col1, y, blackPaint)
+        canvas.drawText("السابقة", col2, y, blackPaint)
+        canvas.drawText("الاستهلاك", col3, y, blackPaint)
+        y += 10f
+        canvas.drawLine(margin, y, width - margin, y, linePaint)
+        y += lineGap
+
+        // Table row
+        blackPaint.typeface = Typeface.DEFAULT
+        canvas.drawText("${invoice.currentReading}", col1, y, blackPaint)
+        canvas.drawText("${invoice.previousReading}", col2, y, blackPaint)
+        canvas.drawText("${invoice.consumption} م³", col3, y, blackPaint)
+        y += 15f
+        canvas.drawLine(margin, y, width - margin, y, linePaint)
+        y += if (isReceipt) 30f else 50f
+
+        // Total
+        blackPaint.textSize = totalSize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        canvas.drawText("المجموع الكلي", margin, y, blackPaint)
+        drawRightAlignedText(canvas, blackPaint, "${invoice.totalAmount} درهم", width - margin, y)
+        y += if (isReceipt) 50f else 70f
+
+        // --- Payment Deadline (notification highlight) ---
+        if (invoice.dueDate > 0) {
+            val dueDate = Instant.fromEpochMilliseconds(invoice.dueDate)
+                .toLocalDateTime(TimeZone.currentSystemDefault())
+            val boxPaint = Paint().apply { color = Color.rgb(255, 243, 224); style = Paint.Style.FILL }
+            val borderPaint = Paint().apply { color = Color.rgb(230, 81, 0); style = Paint.Style.STROKE; strokeWidth = 3f }
+            val boxHeight = if (isReceipt) 70f else 90f
+            val rect = android.graphics.RectF(margin, y, width - margin, y + boxHeight)
+            canvas.drawRoundRect(rect, 8f, 8f, boxPaint)
+            canvas.drawRoundRect(rect, 8f, 8f, borderPaint)
+
+            blackPaint.color = Color.rgb(191, 54, 12)
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            drawCenteredText(canvas, blackPaint, "اجل الدفع: ${dueDate.date}", y + boxHeight / 2 + bodySize / 3, width)
+            blackPaint.color = Color.BLACK
+            y += boxHeight + (if (isReceipt) 18f else 30f)
+        }
+
+        // Footer
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.ITALIC)
+        drawCenteredText(canvas, blackPaint, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
+
+        return bitmap
+    }
+
+    private fun drawCenteredText(canvas: Canvas, paint: Paint, text: String, y: Float, imgWidth: Int) {
+        val x = (imgWidth - paint.measureText(text)) / 2f
+        canvas.drawText(text, x, y, paint)
+    }
+
+    private fun drawRightAlignedText(canvas: Canvas, paint: Paint, text: String, rightX: Float, y: Float) {
+        val x = rightX - paint.measureText(text)
+        canvas.drawText(text, x, y, paint)
+    }
+
+    private fun saveAndGetUri(bitmap: Bitmap, invoiceId: Long): Uri? {
+        return try {
+            val imagesDir = File(context.cacheDir, "shared_invoices")
+            if (!imagesDir.exists()) imagesDir.mkdirs()
+            val imageFile = File(imagesDir, "invoice_$invoiceId.png")
+            FileOutputStream(imageFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", imageFile)
+        } catch (e: Exception) {
+            println("Error saving invoice image: ${e.message}")
+            null
+        }
+    }
+}

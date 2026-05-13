@@ -33,4 +33,19 @@ actual object FilePicker {
             null
         }
     }
+
+    actual fun pickImageFile(): String? {
+        val chooser = JFileChooser()
+        chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+        // Filter for image files
+        val filter = FileNameExtensionFilter("Image Files", "jpg", "jpeg", "png", "gif", "bmp", "webp")
+        chooser.fileFilter = filter
+
+        val result = chooser.showOpenDialog(null)
+        return if (result == JFileChooser.APPROVE_OPTION) {
+            chooser.selectedFile.absolutePath
+        } else {
+            null
+        }
+    }
 }

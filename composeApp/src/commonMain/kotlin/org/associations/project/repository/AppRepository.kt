@@ -32,6 +32,24 @@ class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFa
         }
     }
 
+    fun exportDatabaseToStream(out: java.io.OutputStream) {
+        try {
+            driverFactory.exportDatabaseToStream(out)
+        } catch (e: Exception) {
+            println("Export error: ${e.message}")
+            throw e
+        }
+    }
+
+    fun importDatabaseFromStream(input: java.io.InputStream) {
+        try {
+            driverFactory.importDatabaseFromStream(input)
+        } catch (e: Exception) {
+            println("Import error: ${e.message}")
+            throw e
+        }
+    }
+
     fun clearDatabase() {
         // Deprecated: use clearUserData instead
         try {
@@ -440,5 +458,100 @@ class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFa
 
     fun getRecentTransactions(): Flow<List<TransactionTable>> {
         return queries.getRecentTransactions().asFlow().mapToList(Dispatchers.IO)
+    }
+
+    // ===== Seed Test Data for Penalty Testing =====
+    suspend fun seedTestData() {
+        val today = Clock.System.now().toEpochMilliseconds()
+        val dayMs = 86_400_000L
+
+        // Check if we already have subscribers
+        val existingSubscribers = queries.getAllSubscribers().executeAsList()
+        if (existingSubscribers.size >= 3) {
+            println("Seed skipped: ${existingSubscribers.size} subscribers already exist")
+            return
+        }
+
+        // Create a test zone
+        queries.insertZone("منطقة تجريبية", "منطقة لاختبار الغرامات")
+        val zones = queries.getAllZones().executeAsList()
+        val zoneId = zones.last().id
+
+        // Create test subscribers
+        val subscriberData = listOf(
+            Triple("أحمد بن علي", "0600000001", 100L),
+            Triple("فاطمة الزهراء", "0600000002", 150L),
+            Triple("محمد الخليفي", "0600000003", 80L),
+            Triple("عائشة السعيد", "0600000004", 200L)
+        )
+
+        subscriberData.forEach { (name, phone, meter) ->
+            queries.insertSubscriber(name, phone, "M-$meter", "عنوان $name", zoneId, 1, today)
+        }
+        val allSubs = queries.getAllSubscribers().executeAsList()
+        val subscriberIds = allSubs.takeLast(subscriberData.size).map { it.id }
+
+        // Create past dates for penalty testing
+        // Issue date = 45 days ago, due date = 15 days ago (past due)
+        val issueDate = today - (45 * dayMs)
+        val dueDate = today - (15 * dayMs)
+
+        // Create UNPAID invoices with past due dates
+        subscriberIds.forEachIndexed { index, sid ->
+            val prevReading = 1000L + (index * 100)
+            val currReading = prevReading + 50 + (index * 20)
+            val consumption = currReading - prevReading
+            val baseAmount = 45.0 + (index * 15)
+
+            queries.insertInvoice(
+                subscriberId = sid,
+                previousReading = prevReading,
+                currentReading = currReading,
+                consumption = consumption,
+                totalAmount = baseAmount,
+                status = "UNPAID",
+                issueDate = issueDate,
+                dueDate = dueDate,
+                isPenaltyApplied = 0
+            )
+        }
+
+        // Create one PAID invoice (no penalty should apply)
+        if (subscriberIds.size >= 2) {
+            val sid = subscriberIds[1]
+            queries.insertInvoice(
+                subscriberId = sid,
+                previousReading = 1200L,
+                currentReading = 1280L,
+                consumption = 80L,
+                totalAmount = 60.0,
+                status = "PAID",
+                issueDate = issueDate,
+                dueDate = dueDate,
+                isPenaltyApplied = 0
+            )
+        }
+
+        // Create a recent invoice (not yet due, should not get penalty)
+        val recentIssueDate = today - (5 * dayMs)
+        val recentDueDate = today + (25 * dayMs)
+        if (subscriberIds.isNotEmpty()) {
+            queries.insertInvoice(
+                subscriberId = subscriberIds[0],
+                previousReading = 1050L,
+                currentReading = 1120L,
+                consumption = 70L,
+                totalAmount = 55.0,
+                status = "UNPAID",
+                issueDate = recentIssueDate,
+                dueDate = recentDueDate,
+                isPenaltyApplied = 0
+            )
+        }
+
+        // Apply penalties to overdue invoices
+        checkAndApplyLateFees()
+
+        println("Seed complete: ${subscriberIds.size} subscribers, multiple invoices created")
     }
 }

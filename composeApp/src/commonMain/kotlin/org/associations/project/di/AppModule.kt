@@ -5,8 +5,10 @@ import io.github.jan.supabase.postgrest.Postgrest
 import org.associations.project.billing.InvoicesViewModel
 import org.associations.project.dashboard.DashboardViewModel
 import org.associations.project.database.AppDatabase
+import org.associations.project.maintenance.MaintenanceViewModel
 import org.associations.project.members.MembersViewModel
 import org.associations.project.meter.MeterReadingViewModel
+import org.associations.project.meter.ReadingsHistoryViewModel
 import org.associations.project.repository.AppRepository
 import org.associations.project.repository.LicenseRepository
 import org.associations.project.settings.SettingsViewModel
@@ -35,6 +37,8 @@ val appModule = module {
     viewModelOf(::MeterReadingViewModel)
     viewModelOf(::InvoicesViewModel)
     viewModelOf(::TreasuryViewModel)
+    viewModelOf(::MaintenanceViewModel)
+    viewModelOf(::ReadingsHistoryViewModel)
 
     singleOf(::LicenseRepository)
     viewModelOf(::ActivationViewModel)

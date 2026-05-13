@@ -27,13 +27,13 @@ import org.koin.compose.viewmodel.koinViewModel
 fun TreasuryScreen(onNavigateBack: () -> Unit) {
     val viewModel = koinViewModel<TreasuryViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
+
     var showIncomeDialog by remember { mutableStateOf(false) }
     var showExpenseDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
-    
+
     val snackbarHostState = remember { SnackbarHostState() }
-    
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -43,113 +43,100 @@ fun TreasuryScreen(onNavigateBack: () -> Unit) {
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text(Strings.treasury) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    ),
+                    actions = {
+                        // Add Income Icon
+                        IconButton(onClick = { showIncomeDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.AddCircle,
+                                contentDescription = Strings.addIncome,
+                                tint = Color(0xFF4CAF50)
+                            )
+                        }
+                        // Add Expense Icon
+                        IconButton(onClick = { showExpenseDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.RemoveCircle,
+                                contentDescription = Strings.addExpense,
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                )
+            }
         ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // Header
-                Text(
-                    text = Strings.treasury,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Balance Summary
-                BalanceSummaryCard(
+                // Compact Balance Summary
+                CompactBalanceCard(
                     totalIncome = uiState.totalIncome,
                     totalExpenses = uiState.totalExpenses,
                     balance = uiState.balance
                 )
 
-                // Month Filter
+                // Compact Month Filter
                 var monthExpanded by remember { mutableStateOf(false) }
-                Card(
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = Strings.monthFilter,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        ExposedDropdownMenuBox(
-                            expanded = monthExpanded,
-                            onExpandedChange = { monthExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = uiState.selectedMonth?.displayName ?: Strings.allMonths,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(),
-                                colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                    ExposedDropdownMenuBox(
+                        expanded = monthExpanded,
+                        onExpandedChange = { monthExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = uiState.selectedMonth?.displayName ?: Strings.allMonths,
+                            onValueChange = {},
+                            readOnly = true,
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.CalendarMonth,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
                                 )
+                            },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = monthExpanded) },
+                            modifier = Modifier.widthIn(max = 180.dp).menuAnchor(),
+                            textStyle = MaterialTheme.typography.bodySmall,
+                            singleLine = true,
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = monthExpanded,
+                            onDismissRequest = { monthExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(Strings.allMonths, style = MaterialTheme.typography.bodySmall) },
+                                onClick = {
+                                    viewModel.selectMonth(null)
+                                    monthExpanded = false
+                                }
                             )
-                            ExposedDropdownMenu(
-                                expanded = monthExpanded,
-                                onDismissRequest = { monthExpanded = false }
-                            ) {
+                            uiState.availableMonths.forEach { month ->
                                 DropdownMenuItem(
-                                    text = { Text(Strings.allMonths) },
+                                    text = { Text(month.displayName, style = MaterialTheme.typography.bodySmall) },
                                     onClick = {
-                                        viewModel.selectMonth(null)
+                                        viewModel.selectMonth(month)
                                         monthExpanded = false
                                     }
                                 )
-                                uiState.availableMonths.forEach { month ->
-                                    DropdownMenuItem(
-                                        text = { Text(month.displayName) },
-                                        onClick = {
-                                            viewModel.selectMonth(month)
-                                            monthExpanded = false
-                                        }
-                                    )
-                                }
                             }
                         }
                     }
                 }
-
-                // Quick Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Button(
-                        onClick = { showIncomeDialog = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50))
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(Strings.addIncome)
-                    }
-                    Button(
-                        onClick = { showExpenseDialog = true },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(Strings.addExpense)
-                    }
-                }
-
-                // Transactions Header
-                Text(
-                    text = Strings.transactionHistory,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
 
                 // Transactions List
                 if (uiState.isLoading) {
@@ -165,10 +152,11 @@ fun TreasuryScreen(onNavigateBack: () -> Unit) {
                     }
                 } else {
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         items(uiState.transactions, key = { it.id }) { transaction ->
-                            TransactionCard(
+                            CompactTransactionItem(
                                 transaction = transaction,
                                 onEdit = { viewModel.showEditDialog(transaction) },
                                 onDelete = { showDeleteDialog = transaction.id }
@@ -248,56 +236,62 @@ fun TreasuryScreen(onNavigateBack: () -> Unit) {
 }
 
 @Composable
-fun BalanceSummaryCard(
+fun CompactBalanceCard(
     totalIncome: Double,
     totalExpenses: Double,
     balance: Double
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceAround
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
+            // Income
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = Strings.income,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "$totalIncome ${Strings.dhs}",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "${totalIncome.toInt()}",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4CAF50)
                 )
             }
+            // Expenses
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = Strings.expenses,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "$totalExpenses ${Strings.dhs}",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "${totalExpenses.toInt()}",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error
                 )
             }
+            // Balance
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = Strings.balance,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "$balance ${Strings.dhs}",
-                    style = MaterialTheme.typography.titleLarge,
+                    text = "${balance.toInt()}",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (balance >= 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
                 )
@@ -307,86 +301,99 @@ fun BalanceSummaryCard(
 }
 
 @Composable
-fun TransactionCard(
+fun CompactTransactionItem(
     transaction: TransactionTable,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val isIncome = transaction.type == "INCOME"
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isIncome) 
-                Color(0xFF4CAF50).copy(alpha = 0.1f) 
-            else 
-                MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-        )
+            containerColor = if (isIncome)
+                Color(0xFF4CAF50).copy(alpha = 0.08f)
+            else
+                MaterialTheme.colorScheme.error.copy(alpha = 0.08f)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = if (isIncome) Icons.Default.TrendingUp else Icons.Default.TrendingDown,
-                    contentDescription = null,
-                    tint = if (isIncome) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
+            // Left: Category and details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = transaction.category,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
                 )
-                Column {
-                    Text(
-                        text = transaction.category,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    transaction.description?.let {
-                        Text(
-                            text = it,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text(
-                        text = formatTransactionDate(transaction.date),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                val descText = if (transaction.description != null) 
+                    "${transaction.description} · " 
+                else ""
+                Text(
+                    text = "$descText${formatCompactTransactionDate(transaction.date)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
             }
-            
+
+            // Right: Amount and actions
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "${if (isIncome) "+" else "-"}${transaction.amount} ${Strings.dhs}",
-                    style = MaterialTheme.typography.titleMedium,
+                    text = "${if (isIncome) "+" else "-"}${transaction.amount.toInt()}",
+                    style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.Bold,
                     color = if (isIncome) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error
                 )
-                IconButton(onClick = onEdit) {
+                Text(
+                    text = Strings.dhs,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // Compact action icons
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = Strings.edit,
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
-                IconButton(onClick = onDelete) {
+                IconButton(
+                    onClick = onDelete,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = Strings.delete,
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
         }
     }
+}
+
+// Compact date formatter for mobile
+private fun formatCompactTransactionDate(epochMillis: Long): String {
+    val instant = Instant.fromEpochMilliseconds(epochMillis)
+    val localDate = instant.toLocalDateTime(TimeZone.currentSystemDefault()).date
+    return "${localDate.dayOfMonth}/${localDate.monthNumber}/${localDate.year}"
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -476,14 +483,5 @@ fun TransactionDialog(
     )
 }
 
-fun formatTransactionDate(timestamp: Long): String {
-    return try {
-        val instant = Instant.fromEpochMilliseconds(timestamp)
-        val datetime = instant.toLocalDateTime(TimeZone.currentSystemDefault())
-        "${datetime.dayOfMonth}/${datetime.monthNumber}/${datetime.year}"
-    } catch (e: Exception) {
-        "-"
-    }
-}
 
 

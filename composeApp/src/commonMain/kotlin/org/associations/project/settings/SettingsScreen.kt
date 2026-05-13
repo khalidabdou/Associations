@@ -33,6 +33,10 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
     val snackbarHostState = remember { SnackbarHostState() }
 
+    // Re-verify activation against Supabase every time the settings screen is entered,
+    // in case the admin flipped `is_active` to false remotely.
+    LaunchedEffect(Unit) { viewModel.refreshActivationStatus() }
+
     LaunchedEffect(uiState.message) {
         uiState.message?.let {
             snackbarHostState.showSnackbar(it)
@@ -160,10 +164,67 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         RadioButton(
+                                                selected = uiState.printFormat == "A5",
+                                                onClick = { viewModel.updatePrintFormat("A5") }
+                                        )
+                                        Text("طابعة متوسطة (A5)")
+                                    }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        RadioButton(
                                                 selected = uiState.printFormat == "RECEIPT",
                                                 onClick = { viewModel.updatePrintFormat("RECEIPT") }
                                         )
                                         Text("طابعة إيصالات (80mm)")
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider()
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Logo Selection
+                                Text(
+                                        text = "شعار الجمعية",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                )
+
+                                val currentLogoPath = uiState.logoPath
+                                val imagePickerLauncher = org.associations.project.utils.rememberImagePickerLauncher { path ->
+                                    if (path != null) {
+                                        viewModel.updateLogo(path)
+                                    }
+                                }
+                                Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (currentLogoPath != null) {
+                                        Text(
+                                                text = currentLogoPath.substringAfterLast("/"),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.weight(1f),
+                                                maxLines = 1
+                                        )
+                                        TextButton(
+                                                onClick = { viewModel.updateLogo(null) },
+                                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                                        ) {
+                                            Text("إزالة")
+                                        }
+                                    } else {
+                                        Text(
+                                                text = "لم يتم اختيار شعار",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    Button(
+                                            onClick = { imagePickerLauncher() }
+                                    ) {
+                                        Text(if (currentLogoPath != null) "تغيير" else "اختيار")
                                     }
                                 }
                             }
@@ -264,6 +325,13 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
                     // Backup & Data Section
                     item {
+                        val backupLauncher =
+                                org.associations.project.utils.rememberBackupLauncher(
+                                        suggestedFileName = viewModel.suggestedBackupFileName(),
+                                        onExport = { out -> viewModel.exportToStream(out) },
+                                        onImport = { input -> viewModel.importFromStream(input) },
+                                        onMessage = { msg -> viewModel.postMessage(msg) }
+                                )
                         SettingsSection(
                                 title = "النسخ الاحتياطي والبيانات",
                                 icon = Icons.Default.Storage
@@ -277,11 +345,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
                                     Button(
-                                            onClick = { viewModel.exportData() },
+                                            onClick = { backupLauncher.export() },
                                             modifier = Modifier.weight(1f)
                                     ) { Text("تصدير البيانات") }
                                     Button(
-                                            onClick = { viewModel.importData() },
+                                            onClick = { backupLauncher.import() },
                                             modifier = Modifier.weight(1f),
                                             colors =
                                                     ButtonDefaults.buttonColors(
@@ -300,6 +368,15 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                                                 MaterialTheme.colorScheme.error
                                                 )
                                 ) { Text("محو جميع البيانات") }
+                                Button(
+                                        onClick = { viewModel.seedTestData() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors =
+                                                ButtonDefaults.buttonColors(
+                                                        containerColor =
+                                                                MaterialTheme.colorScheme.tertiary
+                                                )
+                                ) { Text("إنشاء بيانات تجريبية (غرامات)") }
                             }
                         }
                     }

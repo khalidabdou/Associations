@@ -27,7 +27,8 @@ data class InvoiceUiModel(
     val dueOrPaidDate: Long?,
     val previousReading: Long,
     val currentReading: Long,
-    val meterNumber: String?
+    val meterNumber: String?,
+    val isPenaltyApplied: Long = 0L
 )
 
 data class InvoicesUiState(
@@ -41,13 +42,18 @@ data class InvoicesUiState(
     val associationAddress: String = "",
     val associationPhone: String = "",
     val printFormat: String = "A4",
+    val logoPath: String? = null,
+    val lateFeeAmount: Double = 0.0,
+    val monthlyFixedFee: Double = 0.0,
+    val selectedIds: Set<Long> = emptySet(),
     val isLoading: Boolean = true,
     val message: String? = null
 )
 
 class InvoicesViewModel(
     private val repository: AppRepository,
-    private val printService: PrintService // Injected
+    private val printService: PrintService, // Injected
+    private val shareService: ShareService  // Injected
 ) : ViewModel() {
     // ...
     // Existing code ...
@@ -107,14 +113,64 @@ class InvoicesViewModel(
                 
                 printService.printInvoice(invoiceEntity, subscriberEntity, settings)
                 showMessage("تم إرسال الفاتورة للطباعة")
-                
+
             } catch (e: Exception) {
                 showMessage("خطأ في الطباعة: ${e.message}")
                 e.printStackTrace()
             }
         }
     }
-    
+
+    fun shareInvoice(invoiceId: Long) {
+        viewModelScope.launch {
+            try {
+                // Fetch full details
+                val settings = repository.getSettings().first()
+                if (settings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+
+                val details = repository.getInvoiceDetailsOnce(invoiceId)
+                if (details == null) {
+                    showMessage("خطأ: الفاتورة غير موجودة")
+                    return@launch
+                }
+
+                val invoiceEntity = Invoice(
+                    id = details.id,
+                    subscriberId = details.subscriberId,
+                    previousReading = details.previousReading,
+                    currentReading = details.currentReading,
+                    consumption = details.consumption,
+                    totalAmount = details.totalAmount,
+                    status = details.status,
+                    issueDate = details.issueDate,
+                    dueDate = details.dueDate,
+                    isPenaltyApplied = details.isPenaltyApplied
+                )
+
+                val subscriberEntity = Subscriber(
+                    id = details.subscriberId,
+                    fullName = details.subscriberName ?: "Unknown",
+                    phone = null,
+                    meterNumber = details.meterNumber ?: "",
+                    address = details.address,
+                    zoneId = 0,
+                    isActive = 1,
+                    createdAt = 0
+                )
+
+                shareService.shareInvoice(invoiceEntity, subscriberEntity, settings)
+                showMessage("تم فتح الفاتورة للمشاركة")
+
+            } catch (e: Exception) {
+                showMessage("خطأ في المشاركة: ${e.message}")
+                e.printStackTrace()
+            }
+        }
+    }
+
     // ... existing functions
 
     private val _uiState = MutableStateFlow(InvoicesUiState())
@@ -148,7 +204,8 @@ class InvoicesViewModel(
                                 InvoiceUiModel(
                                     it.id, it.subscriberName, it.consumption, it.totalAmount, 
                                     it.status, it.issueDate, it.dueDate,
-                                    it.previousReading, it.currentReading, it.meterNumber
+                                    it.previousReading, it.currentReading, it.meterNumber,
+                                    it.isPenaltyApplied
                                 ) 
                             }
                         }
@@ -158,7 +215,8 @@ class InvoicesViewModel(
                                 InvoiceUiModel(
                                     it.id, it.subscriberName, it.consumption, it.totalAmount, 
                                     it.status, it.issueDate, it.dueDate,
-                                    it.previousReading, it.currentReading, it.meterNumber
+                                    it.previousReading, it.currentReading, it.meterNumber,
+                                    it.isPenaltyApplied
                                 ) 
                             }
                         }
@@ -168,7 +226,7 @@ class InvoicesViewModel(
             ) { invoices: List<InvoiceUiModel>, settings: AppSettings? ->
                 Pair(invoices, settings)
             }.collect { (all, settings) ->
-                _uiState.update { 
+                _uiState.update {
                     it.copy(
                         allInvoices = all,
                         unpaidInvoices = all.filter { inv -> inv.status == "UNPAID" },
@@ -177,6 +235,9 @@ class InvoicesViewModel(
                         associationAddress = settings?.associationAddress ?: "",
                         associationPhone = settings?.associationPhone ?: "",
                         printFormat = settings?.printFormat ?: "A4",
+                        logoPath = settings?.logoPath,
+                        lateFeeAmount = settings?.lateFeeAmount ?: 0.0,
+                        monthlyFixedFee = settings?.monthlyFixedFee ?: 0.0,
                         isLoading = false,
                         selectedMonth = selectedMonthFlow.value
                     )
@@ -222,6 +283,88 @@ class InvoicesViewModel(
                 showMessage("تم حذف الفاتورة")
             } catch (e: Exception) {
                 showMessage("حدث خطأ: ${e.message}")
+            }
+        }
+    }
+
+    // ===== Multi-select & bulk print =====
+    fun toggleSelection(invoiceId: Long) {
+        _uiState.update { st ->
+            val newSet = st.selectedIds.toMutableSet().apply {
+                if (!add(invoiceId)) remove(invoiceId)
+            }
+            st.copy(selectedIds = newSet)
+        }
+    }
+
+    fun selectAllVisible() {
+        _uiState.update { st ->
+            val visible = when (st.selectedTab) {
+                0 -> st.unpaidInvoices
+                1 -> st.paidInvoices
+                else -> st.allInvoices
+            }
+            st.copy(selectedIds = visible.map { it.id }.toSet())
+        }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(selectedIds = emptySet()) }
+    }
+
+    fun printSelectedInvoices(copies: Int = 1) {
+        val ids = _uiState.value.selectedIds.toList()
+        if (ids.isEmpty()) return
+        viewModelScope.launch {
+            try {
+                val settings = repository.getSettings().first()
+                if (settings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+                val items = ids.mapNotNull { id ->
+                    val d = repository.getInvoiceDetailsOnce(id) ?: return@mapNotNull null
+                    val invoice = Invoice(
+                        id = d.id,
+                        subscriberId = d.subscriberId,
+                        previousReading = d.previousReading,
+                        currentReading = d.currentReading,
+                        consumption = d.consumption,
+                        totalAmount = d.totalAmount,
+                        status = d.status,
+                        issueDate = d.issueDate,
+                        dueDate = d.dueDate,
+                        isPenaltyApplied = d.isPenaltyApplied
+                    )
+                    val sub = Subscriber(
+                        id = d.subscriberId,
+                        fullName = d.subscriberName ?: "Unknown",
+                        phone = null,
+                        meterNumber = d.meterNumber ?: "",
+                        address = d.address,
+                        zoneId = 0,
+                        isActive = 1,
+                        createdAt = 0
+                    )
+                    invoice to sub
+                }
+                if (items.isEmpty()) {
+                    showMessage("لا توجد فواتير صالحة للطباعة")
+                    return@launch
+                }
+                // Duplicate items for multiple copies
+                val printItems = if (copies > 1) items.flatMap { item -> List(copies) { item } } else items
+                val totalPages = printItems.size
+                printService.printInvoices(
+                    items = printItems,
+                    settings = settings,
+                    jobName = "Invoices (${items.size} × $copies)"
+                )
+                showMessage("تم إرسال ${items.size} فاتورة × $copies نسخة ($totalPages صفحة) للطباعة")
+                clearSelection()
+            } catch (e: Exception) {
+                showMessage("خطأ في الطباعة: ${e.message}")
+                e.printStackTrace()
             }
         }
     }
