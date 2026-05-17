@@ -36,7 +36,7 @@ data class InvoicesUiState(
     val unpaidInvoices: List<InvoiceUiModel> = emptyList(),
     val paidInvoices: List<InvoiceUiModel> = emptyList(),
     val selectedTab: Int = 0, // 0 = unpaid, 1 = paid, 2 = all
-    val selectedMonth: MonthYear? = null, // Null = All time
+    val selectedMonth: MonthYear? = MonthYear.current(), // Default to current month
     val availableMonths: List<MonthYear> = MonthYear.generateLast12Months(),
     val associationName: String = "",
     val associationAddress: String = "",
@@ -46,6 +46,7 @@ data class InvoicesUiState(
     val lateFeeAmount: Double = 0.0,
     val monthlyFixedFee: Double = 0.0,
     val selectedIds: Set<Long> = emptySet(),
+    val currentPage: Int = 0,
     val isLoading: Boolean = true,
     val message: String? = null
 )
@@ -176,7 +177,7 @@ class InvoicesViewModel(
     private val _uiState = MutableStateFlow(InvoicesUiState())
     val uiState: StateFlow<InvoicesUiState> = _uiState.asStateFlow()
 
-    private val selectedMonthFlow = MutableStateFlow<MonthYear?>(null)
+    private val selectedMonthFlow = MutableStateFlow<MonthYear?>(MonthYear.current())
 
     init {
         checkLateFees()
@@ -248,10 +249,15 @@ class InvoicesViewModel(
 
     fun selectMonth(month: MonthYear?) {
         selectedMonthFlow.value = month
+        _uiState.update { it.copy(currentPage = 0) }
+    }
+
+    fun goToPage(page: Int) {
+        _uiState.update { it.copy(currentPage = page) }
     }
 
     fun selectTab(index: Int) {
-        _uiState.update { it.copy(selectedTab = index) }
+        _uiState.update { it.copy(selectedTab = index, currentPage = 0) }
     }
 
     fun markAsPaid(invoiceId: Long) {

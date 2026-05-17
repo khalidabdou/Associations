@@ -218,6 +218,8 @@ object Strings {
     // Mark as paid dialog
     const val markPaidTitle = "تأكيد الدفع"
     const val markPaidQuestion = "هل تم استلام الدفع لهذه الفاتورة؟"
+    const val markUnpaidTitle = "تأكيد الإلغاء"
+    const val markUnpaidQuestion = "هل تريد إلغاء الدفع واستعادة الفاتورة كغير مدفوعة؟"
     const val yes = "نعم"
     const val no = "لا"
 

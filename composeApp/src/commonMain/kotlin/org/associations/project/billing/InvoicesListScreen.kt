@@ -44,6 +44,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
     var showPrintDialog by remember { mutableStateOf<InvoiceUiModel?>(null) }
     var showMarkPaidDialog by remember { mutableStateOf<Long?>(null) }
+    var showMarkUnpaidDialog by remember { mutableStateOf<Long?>(null) }
     var showPrintCopiesDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.message) {
@@ -185,7 +186,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                                     isSelected = uiState.selectedIds.contains(invoice.id),
                                     onToggleSelect = { viewModel.toggleSelection(invoice.id) },
                                     onMarkAsPaid = { showMarkPaidDialog = invoice.id },
-                                    onMarkAsUnpaid = { viewModel.markAsUnpaid(invoice.id) },
+                                    onMarkAsUnpaid = { showMarkUnpaidDialog = invoice.id },
                                     onDelete = { showDeleteDialog = invoice.id },
                                     onPrint = { showPrintDialog = invoice }
                                 )
@@ -374,6 +375,29 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
             },
             dismissButton = {
                 TextButton(onClick = { showMarkPaidDialog = null }) {
+                    Text(Strings.no)
+                }
+            }
+        )
+    }
+
+    // Mark-as-unpaid Yes/No Dialog
+    showMarkUnpaidDialog?.let { invoiceId ->
+        AlertDialog(
+            onDismissRequest = { showMarkUnpaidDialog = null },
+            icon = { Icon(Icons.Default.Undo, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text(Strings.markUnpaidTitle) },
+            text = { Text(Strings.markUnpaidQuestion) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.markAsUnpaid(invoiceId)
+                    showMarkUnpaidDialog = null
+                }) {
+                    Text(Strings.yes)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMarkUnpaidDialog = null }) {
                     Text(Strings.no)
                 }
             }
@@ -570,16 +594,18 @@ fun CompactInvoiceItem(
                 )
 
                 // Compact action icons
-                IconButton(
-                    onClick = onPrint,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Print,
-                        contentDescription = "Print",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                if (isPaid) {
+                    IconButton(
+                        onClick = onPrint,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Print,
+                            contentDescription = "Print",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
 
                 if (isPaid) {
