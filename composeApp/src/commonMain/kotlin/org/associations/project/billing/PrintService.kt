@@ -3,6 +3,7 @@ package org.associations.project.billing
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
 import org.associations.project.database.AppSettings
+import org.associations.project.reports.MonthlyReportData
 
 interface PrintService {
     suspend fun printInvoice(invoice: Invoice, subscriber: Subscriber, settings: AppSettings)
@@ -26,4 +27,13 @@ interface PrintService {
         subscriber: Subscriber,
         settings: AppSettings,
     )
+
+    /**
+     * Prints a beautiful, professional A4 monthly report.
+     */
+    suspend fun printMonthlyReport(
+        report: MonthlyReportData,
+        settings: AppSettings
+    )
 }
+

@@ -16,6 +16,8 @@ object Strings {
     const val navTreasury = "الخزينة"
     const val navMaintenance = "الصيانة"
     const val navSettings = "الإعدادات"
+    const val navReports = "التقارير"
+
     
     // Common Actions
     const val add = "إضافة"
@@ -233,4 +235,22 @@ object Strings {
     const val printCopiesTitle = "عدد النسخ"
     const val copies = "نسخة"
     const val printCountInvoices = "طباعة {count} فاتورة × {copies} نسخة"
+
+    // Reports
+    const val monthlyReport = "التقرير الشهري"
+    const val totalWaterConsumed = "إجمالي الماء المستهلك"
+    const val totalBillsGenerated = "إجمالي الفواتير الصادرة"
+    const val totalPaidAmount = "إجمالي المبالغ المحصلة"
+    const val totalUnpaidAmount = "إجمالي المبالغ غير المحصلة"
+    const val totalIncomeReport = "إجمالي مداخيل الخزينة"
+    const val totalExpensesReport = "إجمالي مصاريف الخزينة"
+    const val netBalanceReport = "صافي الرصيد المالي"
+    const val monthlyReportFor = "التقرير المالي والتشغيلي لشهر"
+    const val summaryStats = "ملخص المؤشرات"
+    const val detailedInvoices = "تفاصيل الفواتير"
+    const val detailedTransactions = "تفاصيل المعاملات المالية"
+    const val invoiceCount = "عدد الفواتير"
+    const val paidCount = "المدفوعة"
+    const val unpaidCount = "غير المدفوعة"
 }
+
