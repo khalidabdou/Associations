@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -94,7 +95,19 @@ fun SubscriberListScreen(onNavigateToDetail: (Long) -> Unit, onNavigateToEntry: 
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     placeholder = { Text(Strings.searchMembers) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    singleLine = true
+                    singleLine = true,
+                    colors =
+                            OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black,
+                                    focusedPlaceholderColor = Color.Gray,
+                                    unfocusedPlaceholderColor = Color.Gray,
+                                    focusedLeadingIconColor = Color.Gray,
+                                    unfocusedLeadingIconColor = Color.Gray,
+                                    focusedBorderColor = Color.Gray,
+                                    unfocusedBorderColor = Color.LightGray,
+                                    cursorColor = Color.Black,
+                            )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
