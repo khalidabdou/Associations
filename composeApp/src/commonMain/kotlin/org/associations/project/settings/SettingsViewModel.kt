@@ -5,10 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.associations.project.billing.PrintService
 import org.associations.project.database.PricingTier
 import org.associations.project.database.Zone
+import org.associations.project.reports.MonthlyReportData
 import org.associations.project.repository.AppRepository
 import org.associations.project.repository.LicenseRepository
+import org.associations.project.utils.MonthYear
 
 data class SettingsUiState(
         val zones: List<Zone> = emptyList(),
@@ -30,13 +33,16 @@ data class SettingsUiState(
         val userEnteredCode: String = "",
         val isLoading: Boolean = true,
         val isActivated: Boolean = false,
-        val message: String? = null
+        val message: String? = null,
+        val reportMonth: MonthYear = MonthYear.current(),
+        val isPrintingReport: Boolean = false
 )
 
 class SettingsViewModel(
         private val repository: AppRepository,
         private val licenseRepository: LicenseRepository,
-        private val settings: Settings
+        private val settings: Settings,
+        private val printService: PrintService
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -349,6 +355,81 @@ class SettingsViewModel(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    // ===== Monthly Report =====
+
+    fun previousReportMonth() {
+        _uiState.update { it.copy(reportMonth = it.reportMonth.previous()) }
+    }
+
+    fun nextReportMonth() {
+        val next = _uiState.value.reportMonth.next()
+        // Don't allow going beyond current month
+        if (next.year < MonthYear.current().year ||
+            (next.year == MonthYear.current().year && next.month <= MonthYear.current().month)
+        ) {
+            _uiState.update { it.copy(reportMonth = next) }
+        }
+    }
+
+    fun printMonthlyReport() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPrintingReport = true) }
+            try {
+                val month = _uiState.value.reportMonth
+                val startDate = month.startEpochMillis
+                val endDate = month.endEpochMillis
+
+                // Fetch invoices and transactions for the selected month
+                val invoices = repository.getInvoicesByDateRange(startDate, endDate).first()
+                val transactions = repository.getTransactionsByDateRange(startDate, endDate).first()
+
+                // Compute aggregated stats
+                val totalConsumption = invoices.sumOf { it.consumption }
+                val totalInvoicesCount = invoices.size.toLong()
+                val totalInvoicesAmount = invoices.sumOf { it.totalAmount }
+                val paidInvoices = invoices.filter { it.status == "PAID" }
+                val unpaidInvoices = invoices.filter { it.status != "PAID" }
+                val paidInvoicesCount = paidInvoices.size.toLong()
+                val paidInvoicesAmount = paidInvoices.sumOf { it.totalAmount }
+                val unpaidInvoicesCount = unpaidInvoices.size.toLong()
+                val unpaidInvoicesAmount = unpaidInvoices.sumOf { it.totalAmount }
+                val totalIncomeAmount = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
+                val totalExpensesAmount = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+                val netBalance = totalIncomeAmount - totalExpensesAmount
+
+                val reportData = MonthlyReportData(
+                    monthYear = month,
+                    totalConsumption = totalConsumption,
+                    totalInvoicesCount = totalInvoicesCount,
+                    totalInvoicesAmount = totalInvoicesAmount,
+                    paidInvoicesCount = paidInvoicesCount,
+                    paidInvoicesAmount = paidInvoicesAmount,
+                    unpaidInvoicesCount = unpaidInvoicesCount,
+                    unpaidInvoicesAmount = unpaidInvoicesAmount,
+                    totalIncomeAmount = totalIncomeAmount,
+                    totalExpensesAmount = totalExpensesAmount,
+                    netBalance = netBalance,
+                    invoices = invoices,
+                    transactions = transactions
+                )
+
+                // Fetch current settings
+                val appSettings = repository.getSettings().first()
+                if (appSettings != null) {
+                    printService.printMonthlyReport(reportData, appSettings)
+                    showMessage("تم إرسال التقرير الشهري للطباعة")
+                } else {
+                    showMessage("الرجاء حفظ إعدادات الجمعية أولاً")
+                }
+            } catch (e: Exception) {
+                showMessage("خطأ في طباعة التقرير: ${e.message}")
+                e.printStackTrace()
+            } finally {
+                _uiState.update { it.copy(isPrintingReport = false) }
+            }
+        }
     }
 
     // ===== Seed Test Data =====

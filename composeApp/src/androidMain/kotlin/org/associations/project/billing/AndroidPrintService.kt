@@ -20,6 +20,7 @@ import android.print.PrintManager
 import org.associations.project.database.AppSettings
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
+import org.associations.project.reports.MonthlyReportData
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.datetime.Instant
@@ -184,6 +185,390 @@ class AndroidPrintService(private val context: Context) : PrintService {
             }
         }
         printManager.print(jobName, adapter, attributes)
+    }
+
+    override suspend fun printMonthlyReport(
+            report: MonthlyReportData,
+            settings: AppSettings
+    ) {
+        val bitmaps = generateMonthlyReportPages(report, settings)
+        val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+
+        val attributes = PrintAttributes.Builder().apply {
+            setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+            setResolution(PrintAttributes.Resolution("default", "default", 300, 300))
+        }.build()
+
+        val jobName = "التقرير الشهري - ${report.monthYear.displayName}"
+        val adapter = object : PrintDocumentAdapter() {
+            override fun onLayout(
+                    oldAttributes: PrintAttributes?,
+                    newAttributes: PrintAttributes,
+                    cancellationSignal: CancellationSignal?,
+                    callback: LayoutResultCallback,
+                    extras: Bundle?
+            ) {
+                if (cancellationSignal?.isCanceled == true) {
+                    callback.onLayoutCancelled()
+                    return
+                }
+                val info = PrintDocumentInfo.Builder(jobName)
+                        .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                        .setPageCount(bitmaps.size)
+                        .build()
+                callback.onLayoutFinished(info, newAttributes == oldAttributes)
+            }
+
+            override fun onWrite(
+                    pageRanges: Array<out PageRange>,
+                    destination: ParcelFileDescriptor,
+                    cancellationSignal: CancellationSignal?,
+                    callback: WriteResultCallback
+            ) {
+                if (cancellationSignal?.isCanceled == true) {
+                    callback.onWriteCancelled()
+                    return
+                }
+
+                val pdfDocument = PdfDocument()
+                bitmaps.forEachIndexed { index, bmp ->
+                    val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    page.canvas.drawBitmap(bmp, 0f, 0f, null)
+                    pdfDocument.finishPage(page)
+                }
+
+                try {
+                    FileOutputStream(destination.fileDescriptor).use { output ->
+                        pdfDocument.writeTo(output)
+                    }
+                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+                } catch (e: Exception) {
+                    callback.onWriteFailed(e.message)
+                } finally {
+                    pdfDocument.close()
+                    destination.close()
+                }
+            }
+        }
+
+        printManager.print(jobName, adapter, attributes)
+    }
+
+    private fun generateMonthlyReportPages(
+            report: MonthlyReportData,
+            settings: AppSettings
+    ): List<Bitmap> {
+        // A4 dimensions only
+        val width = 1240
+        val height = 1754
+        val margin = 90f
+        val leftMargin = margin
+        val rightMargin = width - margin
+        val contentWidth = rightMargin - leftMargin
+
+        val titleSize = 52f
+        val subtitleSize = 40f
+        val bodySize = 32f
+        val tableSize = 28f
+        val totalSize = 44f
+        val lineGap = 40f
+
+        val pages = mutableListOf<Bitmap>()
+        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
+        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+
+        // ── Helper to create a new page ──
+        fun newPage(): Pair<Bitmap, Canvas> {
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val bgPaint = Paint().apply { color = Color.WHITE }
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+            return bitmap to canvas
+        }
+
+        // ── Helper: draw header on a canvas, returns y after header ──
+        fun drawHeader(canvas: Canvas, yStart: Float): Float {
+            var y = yStart
+
+            // Logo
+            if (!settings.logoPath.isNullOrBlank()) {
+                try {
+                    val logoFile = File(settings.logoPath)
+                    if (logoFile.exists()) {
+                        val logoBitmap = android.graphics.BitmapFactory.decodeFile(settings.logoPath)
+                        if (logoBitmap != null) {
+                            val logoSize = 160f
+                            val logoLeft = (width - logoSize) / 2f
+                            val src = Rect(0, 0, logoBitmap.width, logoBitmap.height)
+                            val dst = RectF(logoLeft, y, logoLeft + logoSize, y + logoSize)
+                            canvas.drawBitmap(logoBitmap, src, dst, null)
+                            y += logoSize + 30f
+                        }
+                    }
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+
+            blackPaint.textSize = totalSize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            drawCenteredText(canvas, blackPaint, settings.associationName, y, width)
+            y += totalSize + 8f
+
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.DEFAULT
+            if (settings.associationAddress.isNotBlank()) {
+                drawCenteredText(canvas, blackPaint, settings.associationAddress, y, width)
+                y += lineGap
+            }
+            if (settings.associationPhone.isNotBlank()) {
+                drawCenteredText(canvas, blackPaint, settings.associationPhone, y, width)
+                y += lineGap
+            }
+            y += 12f
+            canvas.drawLine(margin, y, rightMargin, y, linePaint)
+            y += 30f
+
+            return y
+        }
+
+        // ── Helper: draw page footer ──
+        fun drawFooter(canvas: Canvas, pageNum: Int, totalPages: Int) {
+            val footerY = height - 50f
+            canvas.drawLine(margin, footerY - 10f, rightMargin, footerY - 10f, linePaint)
+            blackPaint.textSize = 24f
+            blackPaint.typeface = Typeface.DEFAULT
+            val footerText = "صفحة $pageNum / $totalPages"
+            drawCenteredText(canvas, blackPaint, footerText, footerY + 20f, width)
+        }
+
+        // ── Build page 1: Header + Summary + Financial + first invoices ──
+        val (bmp1, canvas1) = newPage()
+        pages.add(bmp1)
+        var y = drawHeader(canvas1, margin)
+
+        // Report title
+        blackPaint.textSize = titleSize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        drawCenteredText(canvas1, blackPaint, "التقرير الشهري - ${report.monthYear.displayName}", y, width)
+        y += titleSize + 24f
+        canvas1.drawLine(margin, y, rightMargin, y, linePaint)
+        y += 30f
+
+        // ── Summary statistics box ──
+        val boxPaint = Paint().apply { color = Color.rgb(245, 245, 255); style = Paint.Style.FILL }
+        val boxBorder = Paint().apply { color = Color.rgb(100, 100, 180); style = Paint.Style.STROKE; strokeWidth = 2f }
+
+        val summaryLines = listOf(
+            "إجمالي الاستهلاك: ${report.totalConsumption} م³",
+            "عدد الفواتير: ${report.totalInvoicesCount}  |  المبلغ: ${formatAmount(report.totalInvoicesAmount)} درهم",
+            "الفواتير المسددة: ${report.paidInvoicesCount}  |  المبلغ: ${formatAmount(report.paidInvoicesAmount)} درهم",
+            "الفواتير الغير مسددة: ${report.unpaidInvoicesCount}  |  المبلغ: ${formatAmount(report.unpaidInvoicesAmount)} درهم",
+        )
+
+        val summaryBoxHeight = summaryLines.size * lineGap + 40f
+        val summaryRect = RectF(margin, y - 10f, rightMargin, y + summaryBoxHeight)
+        canvas1.drawRoundRect(summaryRect, 10f, 10f, boxPaint)
+        canvas1.drawRoundRect(summaryRect, 10f, 10f, boxBorder)
+
+        y += lineGap
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.DEFAULT
+        for (line in summaryLines) {
+            drawRightAlignedText(canvas1, blackPaint, line, rightMargin - 20f, y)
+            y += lineGap
+        }
+        y += 16f
+
+        // ── Financial summary ──
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        blackPaint.textSize = subtitleSize
+        drawCenteredText(canvas1, blackPaint, "الملخص المالي", y, width)
+        y += subtitleSize + 12f
+
+        val finBoxPaint = Paint().apply { color = Color.rgb(232, 245, 233); style = Paint.Style.FILL }
+        val finBorder = Paint().apply { color = Color.rgb(46, 125, 50); style = Paint.Style.STROKE; strokeWidth = 2f }
+        val finLines = listOf(
+            "الإيرادات: +${formatAmount(report.totalIncomeAmount)} درهم",
+            "المصاريف: -${formatAmount(report.totalExpensesAmount)} درهم",
+            "الرصيد الصافي: ${formatAmount(report.netBalance)} درهم",
+        )
+        val finBoxHeight = finLines.size * lineGap + 30f
+        val finRect = RectF(margin + 40f, y, rightMargin - 40f, y + finBoxHeight)
+        canvas1.drawRoundRect(finRect, 8f, 8f, finBoxPaint)
+        canvas1.drawRoundRect(finRect, 8f, 8f, finBorder)
+
+        y += lineGap
+        blackPaint.textSize = bodySize
+        blackPaint.typeface = Typeface.DEFAULT
+        for (line in finLines) {
+            drawRightAlignedText(canvas1, blackPaint, line, rightMargin - 60f, y)
+            y += lineGap
+        }
+        y += 20f
+
+        // ── Invoices table section ──
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        blackPaint.textSize = subtitleSize
+        drawRightAlignedText(canvas1, blackPaint, "الفواتير", rightMargin, y)
+        y += lineGap
+        canvas1.drawLine(margin, y, rightMargin, y, linePaint)
+        y += 10f
+
+        // Table header
+        blackPaint.textSize = tableSize
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val colSub = leftMargin
+        val colMeter = leftMargin + contentWidth * 0.22f
+        val colCons = leftMargin + contentWidth * 0.42f
+        val colAmt = leftMargin + contentWidth * 0.60f
+        val colStat = leftMargin + contentWidth * 0.78f
+        canvas1.drawText("المشترك", colSub, y, blackPaint)
+        canvas1.drawText("العداد", colMeter, y, blackPaint)
+        canvas1.drawText("الاستهلاك", colCons, y, blackPaint)
+        canvas1.drawText("المبلغ", colAmt, y, blackPaint)
+        canvas1.drawText("الحالة", colStat, y, blackPaint)
+        y += 10f
+        canvas1.drawLine(margin, y, rightMargin, y, linePaint)
+        y += lineGap
+
+        // Table rows — fit as many as possible on remaining space
+        blackPaint.textSize = tableSize
+        blackPaint.typeface = Typeface.DEFAULT
+        var invoiceIndex = 0
+        val remainingHeight = height - y - 80f  // 80f for footer
+        val maxRowsPage1 = (remainingHeight / lineGap).toInt().coerceAtMost(report.invoices.size)
+
+        for (i in 0 until maxRowsPage1) {
+            val inv = report.invoices[i]
+            canvas1.drawText(inv.subscriberName ?: "", colSub, y, blackPaint)
+            canvas1.drawText(inv.meterNumber ?: "", colMeter, y, blackPaint)
+            canvas1.drawText("${inv.consumption} م³", colCons, y, blackPaint)
+            canvas1.drawText("${formatAmount(inv.totalAmount)}", colAmt, y, blackPaint)
+            val statusText = if (inv.status == "PAID") "مدفوعة" else "غير مدفوعة"
+            if (inv.status != "PAID") {
+                blackPaint.color = Color.rgb(191, 54, 12)
+            }
+            canvas1.drawText(statusText, colStat, y, blackPaint)
+            blackPaint.color = Color.BLACK
+            y += lineGap
+            invoiceIndex = i + 1
+        }
+
+        drawFooter(canvas1, 1, -1) // total pages unknown yet, will be fixed later
+
+        // ── Subsequent pages for remaining invoices + transactions ──
+        val itemsPerPage = ((height - margin - 120f) / lineGap).toInt()
+        var pageNum = 2
+
+        while (invoiceIndex < report.invoices.size) {
+            val (bmp, canvas) = newPage()
+            pages.add(bmp)
+            y = margin
+
+            // Page header
+            blackPaint.textSize = subtitleSize
+            blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            drawRightAlignedText(canvas, blackPaint, "الفواتير (تابع)", rightMargin, y)
+            y += lineGap
+            canvas.drawLine(margin, y, rightMargin, y, linePaint)
+            y += 10f
+
+            // Table header
+            blackPaint.textSize = tableSize
+            canvas.drawText("المشترك", colSub, y, blackPaint)
+            canvas.drawText("العداد", colMeter, y, blackPaint)
+            canvas.drawText("الاستهلاك", colCons, y, blackPaint)
+            canvas.drawText("المبلغ", colAmt, y, blackPaint)
+            canvas.drawText("الحالة", colStat, y, blackPaint)
+            y += 10f
+            canvas.drawLine(margin, y, rightMargin, y, linePaint)
+            y += lineGap
+
+            blackPaint.textSize = tableSize
+            blackPaint.typeface = Typeface.DEFAULT
+
+            val rowsThisPage = minOf(itemsPerPage, report.invoices.size - invoiceIndex)
+            for (i in 0 until rowsThisPage) {
+                val inv = report.invoices[invoiceIndex + i]
+                canvas.drawText(inv.subscriberName ?: "", colSub, y, blackPaint)
+                canvas.drawText(inv.meterNumber ?: "", colMeter, y, blackPaint)
+                canvas.drawText("${inv.consumption} م³", colCons, y, blackPaint)
+                canvas.drawText("${formatAmount(inv.totalAmount)}", colAmt, y, blackPaint)
+                val statusText = if (inv.status == "PAID") "مدفوعة" else "غير مدفوعة"
+                if (inv.status != "PAID") {
+                    blackPaint.color = Color.rgb(191, 54, 12)
+                }
+                canvas.drawText(statusText, colStat, y, blackPaint)
+                blackPaint.color = Color.BLACK
+                y += lineGap
+            }
+            invoiceIndex += rowsThisPage
+
+            // If no more invoices, start transactions
+            if (invoiceIndex >= report.invoices.size && report.transactions.isNotEmpty()) {
+                y += 20f
+                blackPaint.textSize = subtitleSize
+                blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                drawRightAlignedText(canvas, blackPaint, "المعاملات المالية", rightMargin, y)
+                y += lineGap
+                canvas.drawLine(margin, y, rightMargin, y, linePaint)
+                y += 10f
+
+                // Transaction table header
+                blackPaint.textSize = tableSize
+                val colTType = leftMargin
+                val colTCat = leftMargin + contentWidth * 0.12f
+                val colTAmt = leftMargin + contentWidth * 0.38f
+                val colTDesc = leftMargin + contentWidth * 0.58f
+                canvas.drawText("النوع", colTType, y, blackPaint)
+                canvas.drawText("الصنف", colTCat, y, blackPaint)
+                canvas.drawText("المبلغ", colTAmt, y, blackPaint)
+                canvas.drawText("الوصف", colTDesc, y, blackPaint)
+                y += 10f
+                canvas.drawLine(margin, y, rightMargin, y, linePaint)
+                y += lineGap
+
+                blackPaint.textSize = tableSize
+                blackPaint.typeface = Typeface.DEFAULT
+                for (txn in report.transactions) {
+                    if (y > height - 100f) break // don't overflow
+                    val typeText = if (txn.type == "INCOME") "إيراد" else "مصروف"
+                    if (txn.type == "EXPENSE") {
+                        blackPaint.color = Color.rgb(191, 54, 12)
+                    } else {
+                        blackPaint.color = Color.rgb(27, 94, 32)
+                    }
+                    canvas.drawText(typeText, colTType, y, blackPaint)
+                    blackPaint.color = Color.BLACK
+                    canvas.drawText(txn.category, colTCat, y, blackPaint)
+                    canvas.drawText("${formatAmount(txn.amount)}", colTAmt, y, blackPaint)
+                    canvas.drawText(txn.description ?: "", colTDesc, y, blackPaint)
+                    y += lineGap
+                }
+            }
+
+            drawFooter(canvas, pageNum, -1)
+            pageNum++
+        }
+
+        // ── Fix page numbers ──
+        val totalPages = pages.size
+        for ((idx, bmp) in pages.withIndex()) {
+            val canvas = Canvas(bmp)
+            val footerY = height - 50f
+            // Redraw footer area
+            val footerBg = Paint().apply { color = Color.WHITE }
+            canvas.drawRect(0f, footerY - 20f, width.toFloat(), height.toFloat(), footerBg)
+            canvas.drawLine(margin, footerY - 10f, rightMargin, footerY - 10f, linePaint)
+            blackPaint.textSize = 24f
+            blackPaint.typeface = Typeface.DEFAULT
+            val footerText = "صفحة ${idx + 1} / $totalPages"
+            drawCenteredText(canvas, blackPaint, footerText, footerY + 20f, width)
+        }
+
+        return pages
     }
 
     private fun generateInvoiceImage(

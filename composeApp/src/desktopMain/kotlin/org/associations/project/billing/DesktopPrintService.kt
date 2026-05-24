@@ -3,6 +3,7 @@ package org.associations.project.billing
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
 import org.associations.project.database.AppSettings
+import org.associations.project.reports.MonthlyReportData
 import java.awt.Font
 import java.awt.Graphics
 import java.awt.Graphics2D
@@ -380,6 +381,208 @@ class DesktopPrintService : PrintService {
                     g2d.color = Color.BLACK
                     y += 55
                 }
+
+                return Printable.PAGE_EXISTS
+            }
+        }
+
+        job.setPrintable(printable, pageFormat)
+        if (job.printDialog()) {
+            try {
+                job.print()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    override suspend fun printMonthlyReport(
+        report: MonthlyReportData,
+        settings: AppSettings
+    ) {
+        val job = PrinterJob.getPrinterJob()
+        job.jobName = "التقرير الشهري - ${report.monthYear.displayName}"
+
+        val pageFormat = job.defaultPage().clone() as PageFormat
+        val paper = Paper()
+        // A4: 210mm x 297mm
+        val widthPt = 210.0 * 72.0 / 25.4
+        val heightPt = 297.0 * 72.0 / 25.4
+        paper.setSize(widthPt, heightPt)
+        paper.setImageableArea(30.0, 30.0, widthPt - 60.0, heightPt - 60.0)
+        pageFormat.paper = paper
+        pageFormat.orientation = PageFormat.PORTRAIT
+
+        val marginX = 40
+        val bodySize = 12
+        val titleSize = 18
+        val lineGap = 16
+
+        // Compute pages: summary page + invoice pages + transaction page
+        val invoiceRowsPerPage = ((pageFormat.imageableHeight - lineGap * 5).toInt() / lineGap).coerceAtLeast(1)
+        val invoicePages = if (report.invoices.isEmpty()) 0
+            else (report.invoices.size + invoiceRowsPerPage - 1) / invoiceRowsPerPage
+        val totalPages = 1 + invoicePages // page 0: summary, subsequent: invoices + transactions
+
+        val printable = object : Printable {
+            override fun print(graphics: Graphics, pf: PageFormat, pageIndex: Int): Int {
+                if (pageIndex >= totalPages) return Printable.NO_SUCH_PAGE
+
+                val g2d = graphics as Graphics2D
+                g2d.translate(pf.imageableX, pf.imageableY)
+                val width = pf.imageableWidth.toInt()
+                val contentWidth = width - marginX * 2
+
+                if (pageIndex == 0) {
+                    // ── Summary page ──
+                    var y = 30
+                    g2d.font = getArabicFont(Font.BOLD, titleSize)
+                    g2d.color = Color.BLACK
+                    centerString(g2d, settings.associationName, y, width)
+                    y += 20
+                    g2d.font = getArabicFont(Font.PLAIN, bodySize)
+                    if (settings.associationAddress.isNotBlank()) {
+                        centerString(g2d, settings.associationAddress, y, width)
+                        y += lineGap
+                    }
+                    if (settings.associationPhone.isNotBlank()) {
+                        centerString(g2d, settings.associationPhone, y, width)
+                        y += lineGap
+                    }
+                    y += 10
+                    g2d.stroke = BasicStroke(1f)
+                    g2d.drawLine(marginX, y, width - marginX, y)
+                    y += 20
+
+                    g2d.font = getArabicFont(Font.BOLD, 16)
+                    centerString(g2d, "التقرير الشهري - ${report.monthYear.displayName}", y, width)
+                    y += 30
+
+                    // Summary box
+                    g2d.color = Color(245, 245, 255)
+                    g2d.fillRoundRect(marginX, y - 5, contentWidth, lineGap * 4 + 20, 10, 10)
+                    g2d.color = Color(100, 100, 180)
+                    g2d.drawRoundRect(marginX, y - 5, contentWidth, lineGap * 4 + 20, 10, 10)
+                    g2d.color = Color.BLACK
+                    g2d.font = getArabicFont(Font.PLAIN, bodySize)
+                    y += lineGap
+                    rightAlignString(g2d, "إجمالي الاستهلاك: ${report.totalConsumption} م³", y, width - marginX - 20)
+                    y += lineGap
+                    rightAlignString(g2d, "عدد الفواتير: ${report.totalInvoicesCount}  |  المبلغ: ${formatAmount(report.totalInvoicesAmount)} درهم", y, width - marginX - 20)
+                    y += lineGap
+                    rightAlignString(g2d, "المسددة: ${report.paidInvoicesCount}  |  المبلغ: ${formatAmount(report.paidInvoicesAmount)} درهم", y, width - marginX - 20)
+                    y += lineGap
+                    rightAlignString(g2d, "الغير مسددة: ${report.unpaidInvoicesCount}  |  المبلغ: ${formatAmount(report.unpaidInvoicesAmount)} درهم", y, width - marginX - 20)
+                    y += 20
+
+                    // Financial summary
+                    g2d.color = Color(232, 245, 233)
+                    g2d.fillRoundRect(marginX + 30, y - 5, contentWidth - 60, lineGap * 3 + 10, 8, 8)
+                    g2d.color = Color(46, 125, 50)
+                    g2d.drawRoundRect(marginX + 30, y - 5, contentWidth - 60, lineGap * 3 + 10, 8, 8)
+                    g2d.color = Color.BLACK
+                    g2d.font = getArabicFont(Font.BOLD, bodySize)
+                    y += lineGap
+                    rightAlignString(g2d, "الإيرادات: +${formatAmount(report.totalIncomeAmount)} درهم", y, width - marginX - 50)
+                    y += lineGap
+                    rightAlignString(g2d, "المصاريف: -${formatAmount(report.totalExpensesAmount)} درهم", y, width - marginX - 50)
+                    y += lineGap
+                    rightAlignString(g2d, "الرصيد الصافي: ${formatAmount(report.netBalance)} درهم", y, width - marginX - 50)
+                    y += 30
+
+                    // Page footer
+                    g2d.font = getArabicFont(Font.PLAIN, 10)
+                    centerString(g2d, "صفحة 1 / $totalPages", y + 150, width)
+
+                    return Printable.PAGE_EXISTS
+                }
+
+                // ── Invoice/Transaction pages ──
+                var y = 20
+                g2d.font = getArabicFont(Font.BOLD, 14)
+                g2d.color = Color.BLACK
+
+                val invoiceStartIdx = (pageIndex - 1) * invoiceRowsPerPage
+                val remainingInvoices = report.invoices.size - invoiceStartIdx
+
+                if (remainingInvoices > 0) {
+                    val rowsThisPage = minOf(remainingInvoices, invoiceRowsPerPage)
+                    rightAlignString(g2d, "الفواتير${if (pageIndex > 1) " (تابع)" else ""}", y, width - marginX)
+                    y += lineGap
+                    g2d.drawLine(marginX, y, width - marginX, y)
+                    y += 8
+
+                    // Table header
+                    g2d.font = getArabicFont(Font.BOLD, 10)
+                    val colSub = marginX
+                    val colMeter = marginX + contentWidth / 5
+                    val colCons = marginX + contentWidth * 2 / 5
+                    val colAmt = marginX + contentWidth * 3 / 5
+                    val colStat = marginX + contentWidth * 4 / 5
+                    g2d.drawString("المشترك", colSub, y)
+                    g2d.drawString("العداد", colMeter, y)
+                    g2d.drawString("الاستهلاك", colCons, y)
+                    g2d.drawString("المبلغ", colAmt, y)
+                    g2d.drawString("الحالة", colStat, y)
+                    y += 6
+                    g2d.drawLine(marginX, y, width - marginX, y)
+                    y += lineGap
+
+                    g2d.font = getArabicFont(Font.PLAIN, 10)
+                    for (i in 0 until rowsThisPage) {
+                        val inv = report.invoices[invoiceStartIdx + i]
+                        g2d.drawString(inv.subscriberName ?: "", colSub, y)
+                        g2d.drawString(inv.meterNumber ?: "", colMeter, y)
+                        g2d.drawString("${inv.consumption} م³", colCons, y)
+                        g2d.drawString(formatAmount(inv.totalAmount), colAmt, y)
+                        val statusText = if (inv.status == "PAID") "مدفوعة" else "غير مدفوعة"
+                        if (inv.status != "PAID") g2d.color = Color(191, 54, 12)
+                        g2d.drawString(statusText, colStat, y)
+                        g2d.color = Color.BLACK
+                        y += lineGap
+                    }
+                }
+
+                // If this is the last invoice page and we have transactions, add them
+                val invoiceEndIdx = invoiceStartIdx + minOf(remainingInvoices, invoiceRowsPerPage)
+                if (invoiceEndIdx >= report.invoices.size && report.transactions.isNotEmpty()) {
+                    y += 20
+                    g2d.font = getArabicFont(Font.BOLD, 14)
+                    rightAlignString(g2d, "المعاملات المالية", y, width - marginX)
+                    y += lineGap
+                    g2d.drawLine(marginX, y, width - marginX, y)
+                    y += 8
+
+                    g2d.font = getArabicFont(Font.BOLD, 10)
+                    val colTType = marginX
+                    val colTCat = marginX + contentWidth / 7
+                    val colTAmt = marginX + contentWidth * 3 / 7
+                    val colTDesc = marginX + contentWidth * 5 / 7
+                    g2d.drawString("النوع", colTType, y)
+                    g2d.drawString("الصنف", colTCat, y)
+                    g2d.drawString("المبلغ", colTAmt, y)
+                    g2d.drawString("الوصف", colTDesc, y)
+                    y += 6
+                    g2d.drawLine(marginX, y, width - marginX, y)
+                    y += lineGap
+
+                    g2d.font = getArabicFont(Font.PLAIN, 10)
+                    for (txn in report.transactions) {
+                        if (y > pf.imageableHeight - 60) break
+                        val typeText = if (txn.type == "INCOME") "إيراد" else "مصروف"
+                        g2d.color = if (txn.type == "EXPENSE") Color(191, 54, 12) else Color(27, 94, 32)
+                        g2d.drawString(typeText, colTType, y)
+                        g2d.color = Color.BLACK
+                        g2d.drawString(txn.category, colTCat, y)
+                        g2d.drawString(formatAmount(txn.amount), colTAmt, y)
+                        g2d.drawString(txn.description ?: "", colTDesc, y)
+                        y += lineGap
+                    }
+                }
+
+                // Footer
+                g2d.font = getArabicFont(Font.PLAIN, 10)
+                centerString(g2d, "صفحة ${pageIndex + 1} / $totalPages", pf.imageableHeight.toInt() - 40, width)
 
                 return Printable.PAGE_EXISTS
             }

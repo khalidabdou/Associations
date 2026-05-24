@@ -3,6 +3,14 @@ package org.associations.project.utils
 import kotlinx.datetime.*
 
 data class MonthYear(val month: Int, val year: Int) {
+    fun previous(): MonthYear {
+        return if (month == 1) MonthYear(12, year - 1) else MonthYear(month - 1, year)
+    }
+
+    fun next(): MonthYear {
+        return if (month == 12) MonthYear(1, year + 1) else MonthYear(month + 1, year)
+    }
+
     val displayName: String
         get() {
             val monthNames =

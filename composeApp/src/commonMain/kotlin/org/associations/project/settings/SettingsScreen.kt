@@ -16,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.associations.project.database.PricingTier
 import org.associations.project.database.Zone
 import org.associations.project.ui.Strings
+import org.associations.project.utils.MonthYear
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -377,6 +378,63 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                                                 MaterialTheme.colorScheme.tertiary
                                                 )
                                 ) { Text("إنشاء بيانات تجريبية (غرامات)") }
+                            }
+                        }
+                    }
+
+                    // Monthly Report Section
+                    item {
+                        SettingsSection(
+                                title = "التقرير الشهري",
+                                icon = Icons.Default.Print
+                        ) {
+                            Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Month selector
+                                Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(onClick = { viewModel.previousReportMonth() }) {
+                                        Icon(
+                                                imageVector = Icons.Default.KeyboardArrowRight,
+                                                contentDescription = "الشهر السابق"
+                                        )
+                                    }
+                                    Text(
+                                            text = uiState.reportMonth.displayName,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                    )
+                                    IconButton(
+                                            onClick = { viewModel.nextReportMonth() },
+                                            enabled = uiState.reportMonth != MonthYear.current()
+                                    ) {
+                                        Icon(
+                                                imageVector = Icons.Default.KeyboardArrowLeft,
+                                                contentDescription = "الشهر التالي"
+                                        )
+                                    }
+                                }
+
+                                Button(
+                                        onClick = { viewModel.printMonthlyReport() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        enabled = !uiState.isPrintingReport
+                                ) {
+                                    if (uiState.isPrintingReport) {
+                                        CircularProgressIndicator(
+                                                modifier = Modifier.size(20.dp),
+                                                strokeWidth = 2.dp,
+                                                color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                    }
+                                    Text("طباعة التقرير الشهري")
+                                }
                             }
                         }
                     }
