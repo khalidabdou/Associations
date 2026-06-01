@@ -25,6 +25,8 @@ kotlin {
             implementation(libs.sqldelight.android.driver)
             implementation(libs.koin.android)
             implementation(libs.ktor.client.okhttp)
+            implementation("com.itextpdf:itext7-core:7.2.5")
+            implementation("com.itextpdf:html2pdf:4.0.5")
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -58,6 +60,8 @@ kotlin {
             implementation(libs.sqldelight.sqlite.driver)
             implementation(libs.ktor.client.cio)
             implementation("com.russhwolf:multiplatform-settings-no-arg:1.2.0")
+            implementation("com.itextpdf:itext7-core:7.2.5")
+            implementation("com.itextpdf:html2pdf:4.0.5")
         }
     }
 }
@@ -73,7 +77,7 @@ android {
         versionCode = 1
         versionName = "1.0"
     }
-    packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    packaging { resources { excludes += listOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/versions/**") } }
     buildTypes { getByName("release") { isMinifyEnabled = false } }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

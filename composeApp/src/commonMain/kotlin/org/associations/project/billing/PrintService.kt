@@ -35,5 +35,15 @@ interface PrintService {
         report: MonthlyReportData,
         settings: AppSettings
     )
+
+    /**
+     * Exports the monthly report as a PDF to the given [outputStream].
+     * Platform implementation renders the report (e.g. via HTML/WebView) and writes PDF bytes.
+     */
+    suspend fun exportMonthlyReport(
+        report: MonthlyReportData,
+        settings: AppSettings,
+        outputStream: java.io.OutputStream
+    )
 }
 

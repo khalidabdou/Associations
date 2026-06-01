@@ -17,10 +17,13 @@ import android.print.PrintAttributes
 import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.associations.project.database.AppSettings
 import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
 import org.associations.project.reports.MonthlyReportData
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.datetime.Instant
@@ -191,15 +194,58 @@ class AndroidPrintService(private val context: Context) : PrintService {
             report: MonthlyReportData,
             settings: AppSettings
     ) {
-        val bitmaps = generateMonthlyReportPages(report, settings)
-        val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
+        val pages = withContext(Dispatchers.IO) { generateMonthlyReportPages(report, settings) }
+        val pdfBytes = withContext(Dispatchers.IO) { bitmapsToPdfBytes(pages) }
+        printPdfBytes(pdfBytes, "التقرير الشهري - ${report.monthYear.displayName}")
+    }
 
+    override suspend fun exportMonthlyReport(
+            report: MonthlyReportData,
+            settings: AppSettings,
+            outputStream: java.io.OutputStream
+    ) {
+        val pages = withContext(Dispatchers.IO) { generateMonthlyReportPages(report, settings) }
+        withContext(Dispatchers.IO) {
+            val pdfDocument = PdfDocument()
+            try {
+                pages.forEachIndexed { index, bmp ->
+                    val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
+                    val page = pdfDocument.startPage(pageInfo)
+                    page.canvas.drawBitmap(bmp, 0f, 0f, null)
+                    pdfDocument.finishPage(page)
+                }
+                pdfDocument.writeTo(outputStream)
+                outputStream.flush()
+            } finally {
+                pdfDocument.close()
+            }
+        }
+    }
+
+    private fun bitmapsToPdfBytes(pages: List<Bitmap>): ByteArray {
+        val pdfDocument = PdfDocument()
+        return try {
+            pages.forEachIndexed { index, bmp ->
+                val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
+                val page = pdfDocument.startPage(pageInfo)
+                page.canvas.drawBitmap(bmp, 0f, 0f, null)
+                pdfDocument.finishPage(page)
+            }
+            val baos = ByteArrayOutputStream()
+            pdfDocument.writeTo(baos)
+            baos.toByteArray()
+        } finally {
+            pdfDocument.close()
+        }
+    }
+
+    private fun printPdfBytes(pdfBytes: ByteArray, jobName: String) {
+        val printManager = context.getSystemService(Context.PRINT_SERVICE) as PrintManager
         val attributes = PrintAttributes.Builder().apply {
             setMediaSize(PrintAttributes.MediaSize.ISO_A4)
             setResolution(PrintAttributes.Resolution("default", "default", 300, 300))
         }.build()
 
-        val jobName = "التقرير الشهري - ${report.monthYear.displayName}"
         val adapter = object : PrintDocumentAdapter() {
             override fun onLayout(
                     oldAttributes: PrintAttributes?,
@@ -214,9 +260,9 @@ class AndroidPrintService(private val context: Context) : PrintService {
                 }
                 val info = PrintDocumentInfo.Builder(jobName)
                         .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
-                        .setPageCount(bitmaps.size)
+                        .setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN)
                         .build()
-                callback.onLayoutFinished(info, newAttributes == oldAttributes)
+                callback.onLayoutFinished(info, newAttributes != oldAttributes)
             }
 
             override fun onWrite(
@@ -229,24 +275,14 @@ class AndroidPrintService(private val context: Context) : PrintService {
                     callback.onWriteCancelled()
                     return
                 }
-
-                val pdfDocument = PdfDocument()
-                bitmaps.forEachIndexed { index, bmp ->
-                    val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
-                    val page = pdfDocument.startPage(pageInfo)
-                    page.canvas.drawBitmap(bmp, 0f, 0f, null)
-                    pdfDocument.finishPage(page)
-                }
-
                 try {
-                    FileOutputStream(destination.fileDescriptor).use { output ->
-                        pdfDocument.writeTo(output)
+                    FileOutputStream(destination.fileDescriptor).use { out ->
+                        out.write(pdfBytes)
                     }
                     callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
                 } catch (e: Exception) {
                     callback.onWriteFailed(e.message)
                 } finally {
-                    pdfDocument.close()
                     destination.close()
                 }
             }

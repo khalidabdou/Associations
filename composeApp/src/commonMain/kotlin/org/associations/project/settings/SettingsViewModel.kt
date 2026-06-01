@@ -35,7 +35,8 @@ data class SettingsUiState(
         val isActivated: Boolean = false,
         val message: String? = null,
         val reportMonth: MonthYear = MonthYear.current(),
-        val isPrintingReport: Boolean = false
+        val isPrintingReport: Boolean = false,
+        val isExportingReport: Boolean = false
 )
 
 class SettingsViewModel(
@@ -106,7 +107,10 @@ class SettingsViewModel(
                         logoPath = logo,
                         isLoading = false,
                         editingField = _uiState.value.editingField,
-                        message = _uiState.value.message
+                        message = _uiState.value.message,
+                        reportMonth = _uiState.value.reportMonth,
+                        isPrintingReport = _uiState.value.isPrintingReport,
+                        isExportingReport = _uiState.value.isExportingReport
                 )
             }
                     .catch { e ->
@@ -373,51 +377,19 @@ class SettingsViewModel(
         }
     }
 
+    fun suggestedReportFileName(): String {
+        val month = _uiState.value.reportMonth
+        val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        return "Report_${month.year}_${month.month}_$timestamp.pdf"
+    }
+
     fun printMonthlyReport() {
         viewModelScope.launch {
             _uiState.update { it.copy(isPrintingReport = true) }
             try {
-                val month = _uiState.value.reportMonth
-                val startDate = month.startEpochMillis
-                val endDate = month.endEpochMillis
-
-                // Fetch invoices and transactions for the selected month
-                val invoices = repository.getInvoicesByDateRange(startDate, endDate).first()
-                val transactions = repository.getTransactionsByDateRange(startDate, endDate).first()
-
-                // Compute aggregated stats
-                val totalConsumption = invoices.sumOf { it.consumption }
-                val totalInvoicesCount = invoices.size.toLong()
-                val totalInvoicesAmount = invoices.sumOf { it.totalAmount }
-                val paidInvoices = invoices.filter { it.status == "PAID" }
-                val unpaidInvoices = invoices.filter { it.status != "PAID" }
-                val paidInvoicesCount = paidInvoices.size.toLong()
-                val paidInvoicesAmount = paidInvoices.sumOf { it.totalAmount }
-                val unpaidInvoicesCount = unpaidInvoices.size.toLong()
-                val unpaidInvoicesAmount = unpaidInvoices.sumOf { it.totalAmount }
-                val totalIncomeAmount = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
-                val totalExpensesAmount = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
-                val netBalance = totalIncomeAmount - totalExpensesAmount
-
-                val reportData = MonthlyReportData(
-                    monthYear = month,
-                    totalConsumption = totalConsumption,
-                    totalInvoicesCount = totalInvoicesCount,
-                    totalInvoicesAmount = totalInvoicesAmount,
-                    paidInvoicesCount = paidInvoicesCount,
-                    paidInvoicesAmount = paidInvoicesAmount,
-                    unpaidInvoicesCount = unpaidInvoicesCount,
-                    unpaidInvoicesAmount = unpaidInvoicesAmount,
-                    totalIncomeAmount = totalIncomeAmount,
-                    totalExpensesAmount = totalExpensesAmount,
-                    netBalance = netBalance,
-                    invoices = invoices,
-                    transactions = transactions
-                )
-
-                // Fetch current settings
+                val reportData = buildMonthlyReport()
                 val appSettings = repository.getSettings().first()
-                if (appSettings != null) {
+                if (appSettings != null && reportData != null) {
                     printService.printMonthlyReport(reportData, appSettings)
                     showMessage("تم إرسال التقرير الشهري للطباعة")
                 } else {
@@ -430,6 +402,63 @@ class SettingsViewModel(
                 _uiState.update { it.copy(isPrintingReport = false) }
             }
         }
+    }
+
+    suspend fun exportMonthlyReport(outputStream: java.io.OutputStream) {
+        _uiState.update { it.copy(isExportingReport = true) }
+        try {
+            val reportData = buildMonthlyReport()
+            val appSettings = repository.getSettings().first()
+            if (appSettings != null && reportData != null) {
+                printService.exportMonthlyReport(reportData, appSettings, outputStream)
+                showMessage("تم تصدير التقرير بنجاح")
+            } else {
+                showMessage("الرجاء حفظ إعدادات الجمعية أولاً")
+            }
+        } catch (e: Exception) {
+            showMessage("خطأ في تصدير التقرير: ${e.message}")
+            e.printStackTrace()
+        } finally {
+            _uiState.update { it.copy(isExportingReport = false) }
+        }
+    }
+
+    private suspend fun buildMonthlyReport(): MonthlyReportData? {
+        val month = _uiState.value.reportMonth
+        val startDate = month.startEpochMillis
+        val endDate = month.endEpochMillis
+
+        val invoices = repository.getInvoicesByDateRange(startDate, endDate).first()
+        val transactions = repository.getTransactionsByDateRange(startDate, endDate).first()
+
+        val totalConsumption = invoices.sumOf { it.consumption }
+        val totalInvoicesCount = invoices.size.toLong()
+        val totalInvoicesAmount = invoices.sumOf { it.totalAmount }
+        val paidInvoices = invoices.filter { it.status == "PAID" }
+        val unpaidInvoices = invoices.filter { it.status != "PAID" }
+        val paidInvoicesCount = paidInvoices.size.toLong()
+        val paidInvoicesAmount = paidInvoices.sumOf { it.totalAmount }
+        val unpaidInvoicesCount = unpaidInvoices.size.toLong()
+        val unpaidInvoicesAmount = unpaidInvoices.sumOf { it.totalAmount }
+        val totalIncomeAmount = transactions.filter { it.type == "INCOME" }.sumOf { it.amount }
+        val totalExpensesAmount = transactions.filter { it.type == "EXPENSE" }.sumOf { it.amount }
+        val netBalance = totalIncomeAmount - totalExpensesAmount
+
+        return MonthlyReportData(
+            monthYear = month,
+            totalConsumption = totalConsumption,
+            totalInvoicesCount = totalInvoicesCount,
+            totalInvoicesAmount = totalInvoicesAmount,
+            paidInvoicesCount = paidInvoicesCount,
+            paidInvoicesAmount = paidInvoicesAmount,
+            unpaidInvoicesCount = unpaidInvoicesCount,
+            unpaidInvoicesAmount = unpaidInvoicesAmount,
+            totalIncomeAmount = totalIncomeAmount,
+            totalExpensesAmount = totalExpensesAmount,
+            netBalance = netBalance,
+            invoices = invoices,
+            transactions = transactions
+        )
     }
 
     // ===== Seed Test Data =====

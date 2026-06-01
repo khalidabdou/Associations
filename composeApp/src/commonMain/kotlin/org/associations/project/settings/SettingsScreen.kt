@@ -384,6 +384,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
                     // Monthly Report Section
                     item {
+                        val reportExportLauncher = org.associations.project.utils.rememberReportExportLauncher(
+                            suggestedFileName = viewModel.suggestedReportFileName(),
+                            onExport = { out -> viewModel.exportMonthlyReport(out) },
+                            onMessage = { msg -> viewModel.postMessage(msg) }
+                        )
                         SettingsSection(
                                 title = "التقرير الشهري",
                                 icon = Icons.Default.Print
@@ -420,20 +425,43 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                     }
                                 }
 
-                                Button(
-                                        onClick = { viewModel.printMonthlyReport() },
+                                Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        enabled = !uiState.isPrintingReport
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    if (uiState.isPrintingReport) {
-                                        CircularProgressIndicator(
-                                                modifier = Modifier.size(20.dp),
-                                                strokeWidth = 2.dp,
-                                                color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                            onClick = { viewModel.printMonthlyReport() },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !uiState.isPrintingReport
+                                    ) {
+                                        if (uiState.isPrintingReport) {
+                                            CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text("طباعة")
                                     }
-                                    Text("طباعة التقرير الشهري")
+                                    Button(
+                                            onClick = { reportExportLauncher.export() },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !uiState.isExportingReport,
+                                            colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.secondary
+                                            )
+                                    ) {
+                                        if (uiState.isExportingReport) {
+                                            CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onSecondary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text("تصدير PDF")
+                                    }
                                 }
                             }
                         }
