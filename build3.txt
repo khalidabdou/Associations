@@ -1,0 +1,44 @@
+Reusing configuration cache.
+> Task :composeApp:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :composeApp:copyNonXmlValueResourcesForDesktopMain NO-SOURCE
+> Task :composeApp:convertXmlValueResourcesForCommonMain NO-SOURCE
+> Task :composeApp:convertXmlValueResourcesForDesktopMain NO-SOURCE
+> Task :composeApp:generateCommonMainAppDatabaseInterface UP-TO-DATE
+> Task :composeApp:generateComposeResClass UP-TO-DATE
+> Task :composeApp:prepareComposeResourcesTaskForDesktopMain NO-SOURCE
+> Task :composeApp:copyNonXmlValueResourcesForCommonMain UP-TO-DATE
+> Task :composeApp:generateResourceAccessorsForDesktopMain NO-SOURCE
+> Task :composeApp:generateExpectResourceCollectorsForCommonMain UP-TO-DATE
+> Task :composeApp:prepareComposeResourcesTaskForCommonMain UP-TO-DATE
+> Task :composeApp:generateResourceAccessorsForCommonMain UP-TO-DATE
+> Task :composeApp:generateActualResourceCollectorsForDesktopMain UP-TO-DATE
+
+> Task :composeApp:compileKotlinDesktop
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/billing/InvoicesListScreen.kt:105:71 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/billing/InvoicesListScreen.kt:388:41 'val Icons.Filled.Undo: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Undo.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/billing/InvoicesListScreen.kt:617:43 'val Icons.Filled.Undo: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.Undo.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/billing/InvoicesViewModel.kt:201:35 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/database/DatabaseDriverFactory.kt:7:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/maintenance/MaintenanceListScreen.kt:369:60 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/MembersViewModel.kt:29:22 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/SubscriberDetailScreen.kt:52:71 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/SubscriberEntryScreen.kt:66:56 'val Icons.Filled.ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/SubscriberEntryScreen.kt:73:67 Condition is always 'true'.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/SubscriberEntryScreen.kt:153:64 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/members/SubscriberEntryScreen.kt:177:51 Condition is always 'true'.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/meter/MeterReadingScreen.kt:312:73 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/meter/MeterReadingScreen.kt:352:73 'fun Divider(modifier: Modifier = ..., thickness: Dp = ..., color: Color = ...): Unit' is deprecated. Renamed to HorizontalDivider.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/meter/ReadingsHistoryScreen.kt:82:68 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/meter/ReadingsHistoryViewModel.kt:32:31 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/settings/SettingsScreen.kt:413:77 'val Icons.Filled.KeyboardArrowRight: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.KeyboardArrowRight.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/settings/SettingsScreen.kt:427:77 'val Icons.Filled.KeyboardArrowLeft: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.KeyboardArrowLeft.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/treasury/TreasuryScreen.kt:112:71 'fun Modifier.menuAnchor(): Modifier' is deprecated. Use overload that takes MenuAnchorType and enabled parameters.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/treasury/TreasuryViewModel.kt:43:15 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/commonMain/kotlin/org/associations/project/utils/FilePicker.kt:3:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/desktopMain/kotlin/org/associations/project/database/DatabaseDriverFactory.jvm.kt:11:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/desktopMain/kotlin/org/associations/project/main.kt:14:16 'fun painterResource(resourcePath: String): Painter' is deprecated. Migrate to the Compose resources library. See https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-images-resources.html If you need to load resources specificly from Java classpath, you should still use the new resource library and use a snippet from https://github.com/JetBrains/compose-multiplatform-core/pull/1457.
+w: file:///C:/Users/khald/StudioProjects/Associations/composeApp/src/desktopMain/kotlin/org/associations/project/utils/FilePicker.jvm.kt:6:1 'expect'/'actual' classes (including interfaces, objects, annotations, enums, and 'actual' typealiases) are in Beta. You can use -Xexpect-actual-classes flag to suppress this warning. Also see: https://youtrack.jetbrains.com/issue/KT-61573
+
+BUILD SUCCESSFUL in 23s
+8 actionable tasks: 1 executed, 7 up-to-date
+Configuration cache entry reused.

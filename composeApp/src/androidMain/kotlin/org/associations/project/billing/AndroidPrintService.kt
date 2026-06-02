@@ -194,8 +194,11 @@ class AndroidPrintService(private val context: Context) : PrintService {
             report: MonthlyReportData,
             settings: AppSettings
     ) {
-        val pages = withContext(Dispatchers.IO) { generateMonthlyReportPages(report, settings) }
-        val pdfBytes = withContext(Dispatchers.IO) { bitmapsToPdfBytes(pages) }
+        val pdfBytes = withContext(Dispatchers.IO) {
+            val baos = java.io.ByteArrayOutputStream()
+            AndroidMonthlyReportRenderer.render(report, settings, baos)
+            baos.toByteArray()
+        }
         printPdfBytes(pdfBytes, "التقرير الشهري - ${report.monthYear.displayName}")
     }
 
@@ -204,38 +207,9 @@ class AndroidPrintService(private val context: Context) : PrintService {
             settings: AppSettings,
             outputStream: java.io.OutputStream
     ) {
-        val pages = withContext(Dispatchers.IO) { generateMonthlyReportPages(report, settings) }
         withContext(Dispatchers.IO) {
-            val pdfDocument = PdfDocument()
-            try {
-                pages.forEachIndexed { index, bmp ->
-                    val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
-                    val page = pdfDocument.startPage(pageInfo)
-                    page.canvas.drawBitmap(bmp, 0f, 0f, null)
-                    pdfDocument.finishPage(page)
-                }
-                pdfDocument.writeTo(outputStream)
-                outputStream.flush()
-            } finally {
-                pdfDocument.close()
-            }
-        }
-    }
-
-    private fun bitmapsToPdfBytes(pages: List<Bitmap>): ByteArray {
-        val pdfDocument = PdfDocument()
-        return try {
-            pages.forEachIndexed { index, bmp ->
-                val pageInfo = PdfDocument.PageInfo.Builder(bmp.width, bmp.height, index + 1).create()
-                val page = pdfDocument.startPage(pageInfo)
-                page.canvas.drawBitmap(bmp, 0f, 0f, null)
-                pdfDocument.finishPage(page)
-            }
-            val baos = ByteArrayOutputStream()
-            pdfDocument.writeTo(baos)
-            baos.toByteArray()
-        } finally {
-            pdfDocument.close()
+            AndroidMonthlyReportRenderer.render(report, settings, outputStream)
+            outputStream.flush()
         }
     }
 

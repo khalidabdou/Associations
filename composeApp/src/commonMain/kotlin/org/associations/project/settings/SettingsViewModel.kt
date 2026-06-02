@@ -36,7 +36,8 @@ data class SettingsUiState(
         val message: String? = null,
         val reportMonth: MonthYear = MonthYear.current(),
         val isPrintingReport: Boolean = false,
-        val isExportingReport: Boolean = false
+        val isExportingReport: Boolean = false,
+        val isExportingCsv: Boolean = false
 )
 
 class SettingsViewModel(
@@ -110,7 +111,8 @@ class SettingsViewModel(
                         message = _uiState.value.message,
                         reportMonth = _uiState.value.reportMonth,
                         isPrintingReport = _uiState.value.isPrintingReport,
-                        isExportingReport = _uiState.value.isExportingReport
+                        isExportingReport = _uiState.value.isExportingReport,
+                        isExportingCsv = _uiState.value.isExportingCsv
                 )
             }
                     .catch { e ->
@@ -420,6 +422,35 @@ class SettingsViewModel(
             e.printStackTrace()
         } finally {
             _uiState.update { it.copy(isExportingReport = false) }
+        }
+    }
+
+    fun suggestedCsvFileName(): String {
+        val month = _uiState.value.reportMonth
+        val timestamp = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        return "Report_${month.year}_${month.month}_$timestamp.csv"
+    }
+
+    suspend fun exportMonthlyReportCsv(outputStream: java.io.OutputStream) {
+        _uiState.update { it.copy(isExportingCsv = true) }
+        try {
+            val reportData = buildMonthlyReport()
+            val appSettings = repository.getSettings().first()
+            if (appSettings != null && reportData != null) {
+                val csvText = org.associations.project.reports.MonthlyReportCsvGenerator.generate(reportData, appSettings)
+                outputStream.use { out ->
+                    out.write(csvText.toByteArray(Charsets.UTF_8))
+                    out.flush()
+                }
+                showMessage("تم تصدير CSV بنجاح")
+            } else {
+                showMessage("الرجاء حفظ إعدادات الجمعية أولاً")
+            }
+        } catch (e: Exception) {
+            showMessage("خطأ في تصدير CSV: ${e.message}")
+            e.printStackTrace()
+        } finally {
+            _uiState.update { it.copy(isExportingCsv = false) }
         }
     }
 

@@ -389,6 +389,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                             onExport = { out -> viewModel.exportMonthlyReport(out) },
                             onMessage = { msg -> viewModel.postMessage(msg) }
                         )
+                        val csvExportLauncher = org.associations.project.utils.rememberCsvExportLauncher(
+                            suggestedFileName = viewModel.suggestedCsvFileName(),
+                            onExport = { out -> viewModel.exportMonthlyReportCsv(out) },
+                            onMessage = { msg -> viewModel.postMessage(msg) }
+                        )
                         SettingsSection(
                                 title = "التقرير الشهري",
                                 icon = Icons.Default.Print
@@ -427,7 +432,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
 
                                 Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Button(
                                             onClick = { viewModel.printMonthlyReport() },
@@ -461,6 +466,24 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                             Spacer(modifier = Modifier.width(8.dp))
                                         }
                                         Text("تصدير PDF")
+                                    }
+                                    Button(
+                                            onClick = { csvExportLauncher.export() },
+                                            modifier = Modifier.weight(1f),
+                                            enabled = !uiState.isExportingCsv,
+                                            colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.tertiary
+                                            )
+                                    ) {
+                                        if (uiState.isExportingCsv) {
+                                            CircularProgressIndicator(
+                                                    modifier = Modifier.size(20.dp),
+                                                    strokeWidth = 2.dp,
+                                                    color = MaterialTheme.colorScheme.onTertiary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        }
+                                        Text("تصدير CSV")
                                     }
                                 }
                             }
