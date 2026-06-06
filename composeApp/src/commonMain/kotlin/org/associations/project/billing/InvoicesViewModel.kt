@@ -48,7 +48,12 @@ data class InvoicesUiState(
     val selectedIds: Set<Long> = emptySet(),
     val currentPage: Int = 0,
     val isLoading: Boolean = true,
-    val message: String? = null
+    val message: String? = null,
+    // Bluetooth picker state
+    val showBluetoothPicker: Boolean = false,
+    val bluetoothPrinters: List<BluetoothPrinterInfo> = emptyList(),
+    val bluetoothPickerLoading: Boolean = false,
+    val pendingBluetoothInvoiceId: Long? = null
 )
 
 class InvoicesViewModel(
@@ -385,5 +390,89 @@ class InvoicesViewModel(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    // ── Bluetooth thermal printer ──
+
+    /**
+     * Opens the Bluetooth device picker for an invoice print.
+     * If POS format is selected, shows device list. Otherwise prints normally.
+     */
+    fun printInvoiceOrBluetooth(invoiceId: Long) {
+        val format = _uiState.value.printFormat
+        if (format == "POS") {
+            showBluetoothPrintDialog(invoiceId)
+        } else {
+            printInvoice(invoiceId)
+        }
+    }
+
+    private fun showBluetoothPrintDialog(invoiceId: Long) {
+        _uiState.update { it.copy(showBluetoothPicker = true, pendingBluetoothInvoiceId = invoiceId, bluetoothPickerLoading = true) }
+        viewModelScope.launch {
+            try {
+                val printers = printService.getPairedBluetoothPrinters()
+                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(bluetoothPickerLoading = false) }
+                showMessage("خطأ في البحث عن الطابعات: ${e.message}")
+            }
+        }
+    }
+
+    fun selectBluetoothPrinter(address: String) {
+        val invoiceId = _uiState.value.pendingBluetoothInvoiceId ?: return
+        _uiState.update { it.copy(showBluetoothPicker = false, pendingBluetoothInvoiceId = null, bluetoothPrinters = emptyList()) }
+
+        viewModelScope.launch {
+            try {
+                val settings = repository.getSettings().first()
+                if (settings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+                val details = repository.getInvoiceDetailsOnce(invoiceId)
+                if (details == null) {
+                    showMessage("خطأ: الفاتورة غير موجودة")
+                    return@launch
+                }
+
+                val invoiceEntity = Invoice(
+                    id = details.id,
+                    subscriberId = details.subscriberId,
+                    previousReading = details.previousReading,
+                    currentReading = details.currentReading,
+                    consumption = details.consumption,
+                    totalAmount = details.totalAmount,
+                    status = details.status,
+                    issueDate = details.issueDate,
+                    dueDate = details.dueDate,
+                    isPenaltyApplied = details.isPenaltyApplied
+                )
+
+                val subscriberEntity = Subscriber(
+                    id = details.subscriberId,
+                    fullName = details.subscriberName ?: "Unknown",
+                    phone = null,
+                    meterNumber = details.meterNumber ?: "",
+                    address = details.address,
+                    zoneId = 0,
+                    isActive = 1,
+                    createdAt = 0
+                )
+
+                val result = printService.printInvoiceViaBluetooth(invoiceEntity, subscriberEntity, settings, address)
+                result.fold(
+                    onSuccess = { showMessage("تمت الطباعة عبر البلوتوث") },
+                    onFailure = { showMessage("فشل الطباعة: ${it.message}") }
+                )
+            } catch (e: Exception) {
+                showMessage("خطأ في الطباعة: ${e.message}")
+            }
+        }
+    }
+
+    fun cancelBluetoothPrint() {
+        _uiState.update { it.copy(showBluetoothPicker = false, pendingBluetoothInvoiceId = null, bluetoothPrinters = emptyList()) }
     }
 }

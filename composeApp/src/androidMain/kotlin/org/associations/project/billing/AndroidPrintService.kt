@@ -54,7 +54,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
 
         val attributes = PrintAttributes.Builder().apply {
             when (settings.printFormat) {
-                "RECEIPT" -> {
+                "RECEIPT", "POS" -> {
                     setMediaSize(PrintAttributes.MediaSize("ROLL_80MM", "80mm Roll", 3150, 11000))
                     setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
                 }
@@ -129,7 +129,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
 
         val attributes = PrintAttributes.Builder().apply {
             when (settings.printFormat) {
-                "RECEIPT" -> {
+                "RECEIPT", "POS" -> {
                     setMediaSize(PrintAttributes.MediaSize("ROLL_80MM", "80mm Roll", 3150, 11000))
                     setColorMode(PrintAttributes.COLOR_MODE_MONOCHROME)
                 }
@@ -586,7 +586,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             subscriber: Subscriber,
             settings: AppSettings
     ): Bitmap {
-        val isReceipt = settings.printFormat == "RECEIPT"
+        val isReceipt = settings.printFormat == "RECEIPT" || settings.printFormat == "POS"
         val isA5 = settings.printFormat == "A5"
         // Higher resolution for print quality
         val width = when {
@@ -833,7 +833,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             subscriber: Subscriber,
             settings: AppSettings
     ): Bitmap {
-        val isReceipt = settings.printFormat == "RECEIPT"
+        val isReceipt = settings.printFormat == "RECEIPT" || settings.printFormat == "POS"
         val isA5 = settings.printFormat == "A5"
         val width = when {
             isReceipt -> 640
@@ -928,8 +928,21 @@ class AndroidPrintService(private val context: Context) : PrintService {
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         blackPaint.color = Color.rgb(191, 54, 12)
         drawRightAlignedText(canvas, blackPaint, "المبلغ المستحق: ${formatAmount(invoice.totalAmount)} درهم", width - margin - 20f, y)
+        y += lineGap
+
+        // Penalty breakdown (if applied)
+        val penaltyApplied = invoice.isPenaltyApplied == 1L
+        val penaltyValue = if (penaltyApplied) settings.lateFeeAmount else 0.0
+        if (penaltyValue > 0.0) {
+            blackPaint.textSize = bodySize
+            blackPaint.typeface = Typeface.DEFAULT
+            blackPaint.color = Color.rgb(191, 54, 12)
+            drawRightAlignedText(canvas, blackPaint, "بما فيها غرامة التأخير: ${formatAmount(penaltyValue)} درهم", width - margin - 20f, y)
+            blackPaint.color = Color.BLACK
+            y += lineGap
+        }
         blackPaint.color = Color.BLACK
-        y += lineGap + 20f
+        y += 20f
 
         // Payment deadline
         if (invoice.dueDate > 0) {
@@ -965,5 +978,95 @@ class AndroidPrintService(private val context: Context) : PrintService {
     private fun drawRightAlignedText(canvas: Canvas, paint: Paint, text: String, rightX: Float, y: Float) {
         val x = rightX - paint.measureText(text)
         canvas.drawText(text, x, y, paint)
+    }
+
+    // ── Bluetooth thermal printer ──
+
+    override suspend fun getPairedBluetoothPrinters(): List<BluetoothPrinterInfo> {
+        return withContext(Dispatchers.IO) {
+            BluetoothThermalPrinter.getPairedDevices(context).map { (name, addr) ->
+                BluetoothPrinterInfo(name, addr)
+            }
+        }
+    }
+
+    override suspend fun printInvoiceViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateInvoiceImage(invoice, subscriber, settings)
+            BluetoothThermalPrinter.printBitmap(context, bitmap, deviceAddress)
+        }
+    }
+
+    override suspend fun printNotificationViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateNotificationImage(invoice, subscriber, settings)
+            BluetoothThermalPrinter.printBitmap(context, bitmap, deviceAddress)
+        }
+    }
+
+    override suspend fun testBluetoothPrint(deviceAddress: String): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateTestPrintBitmap()
+            BluetoothThermalPrinter.printBitmap(context, bitmap, deviceAddress)
+        }
+    }
+
+    private fun generateTestPrintBitmap(): Bitmap {
+        val width = 384
+        val height = 300
+        val margin = 24f
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(Color.WHITE)
+
+        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
+        var y = margin + 10f
+
+        // Title
+        blackPaint.textSize = 28f
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        drawCenteredText(canvas, blackPaint, "اختبار طباعة", y, width)
+        y += 42f
+
+        // Divider
+        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+        canvas.drawLine(margin, y, width - margin, y, linePaint)
+        y += 30f
+
+        // Info
+        blackPaint.textSize = 20f
+        blackPaint.typeface = Typeface.DEFAULT
+        drawCenteredText(canvas, blackPaint, "طابعة حرارية POS 80mm", y, width)
+        y += 30f
+        drawCenteredText(canvas, blackPaint, "Bluetooth Thermal Printer", y, width)
+        y += 30f
+
+        // Divider
+        canvas.drawLine(margin, y, width - margin, y, linePaint)
+        y += 30f
+
+        // Success
+        blackPaint.textSize = 22f
+        blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val greenPaint = Paint().apply { color = Color.rgb(46, 125, 50); isAntiAlias = true; textSize = 22f; typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD) }
+        drawCenteredText(canvas, greenPaint, "✓ تم الاتصال بنجاح", y, width)
+        y += 36f
+
+        blackPaint.textSize = 16f
+        blackPaint.typeface = Typeface.DEFAULT
+        val now = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale("ar")).format(java.util.Date())
+        drawCenteredText(canvas, blackPaint, now, y, width)
+
+        return bitmap
     }
 }

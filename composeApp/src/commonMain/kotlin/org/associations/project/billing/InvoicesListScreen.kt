@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
@@ -269,7 +270,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Button(onClick = {
-                            viewModel.printInvoice(model.id)
+                            viewModel.printInvoiceOrBluetooth(model.id)
                             showPrintDialog = null
                         }) {
                             Icon(Icons.Default.Print, contentDescription = null)
@@ -399,6 +400,89 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
             dismissButton = {
                 TextButton(onClick = { showMarkUnpaidDialog = null }) {
                     Text(Strings.no)
+                }
+            }
+        )
+    }
+
+    // Bluetooth Device Picker Dialog
+    if (uiState.showBluetoothPicker) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelBluetoothPrint() },
+            icon = { Icon(Icons.Default.Bluetooth, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("اختيار طابعة بلوتوث") },
+            text = {
+                if (uiState.bluetoothPickerLoading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("جار البحث عن الطابعات...")
+                    }
+                } else if (uiState.bluetoothPrinters.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "لا توجد طابعات بلوتوث مقترنة",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "تأكد من تفعيل البلوتوث واقتران الطابعة من إعدادات الجهاز",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    Column {
+                        uiState.bluetoothPrinters.forEach { printer ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = { viewModel.selectBluetoothPrinter(printer.address) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Print,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            printer.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            printer.address,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelBluetoothPrint() }) {
+                    Text(Strings.cancel)
                 }
             }
         )

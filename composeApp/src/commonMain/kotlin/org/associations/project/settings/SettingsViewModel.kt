@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.associations.project.billing.BluetoothPrinterInfo
 import org.associations.project.billing.PrintService
 import org.associations.project.database.PricingTier
 import org.associations.project.database.Zone
@@ -37,7 +38,11 @@ data class SettingsUiState(
         val reportMonth: MonthYear = MonthYear.current(),
         val isPrintingReport: Boolean = false,
         val isExportingReport: Boolean = false,
-        val isExportingCsv: Boolean = false
+        val isExportingCsv: Boolean = false,
+        // Bluetooth test print picker
+        val showBluetoothTestDialog: Boolean = false,
+        val bluetoothPrinters: List<BluetoothPrinterInfo> = emptyList(),
+        val bluetoothPickerLoading: Boolean = false
 )
 
 class SettingsViewModel(
@@ -503,5 +508,35 @@ class SettingsViewModel(
                 e.printStackTrace()
             }
         }
+    }
+
+    // ── Bluetooth test print ──
+
+    fun showBluetoothTestPrint() {
+        _uiState.update { it.copy(showBluetoothTestDialog = true, bluetoothPickerLoading = true) }
+        viewModelScope.launch {
+            try {
+                val printers = printService.getPairedBluetoothPrinters()
+                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(bluetoothPickerLoading = false) }
+                showMessage("خطأ في البحث عن الطابعات: ${e.message}")
+            }
+        }
+    }
+
+    fun selectBluetoothPrinterForTest(address: String) {
+        _uiState.update { it.copy(showBluetoothTestDialog = false, bluetoothPrinters = emptyList()) }
+        viewModelScope.launch {
+            val result = printService.testBluetoothPrint(address)
+            result.fold(
+                onSuccess = { showMessage("تمت الطباعة التجريبية بنجاح") },
+                onFailure = { showMessage("فشل الطباعة: ${it.message}") }
+            )
+        }
+    }
+
+    fun cancelBluetoothTestPrint() {
+        _uiState.update { it.copy(showBluetoothTestDialog = false, bluetoothPrinters = emptyList()) }
     }
 }

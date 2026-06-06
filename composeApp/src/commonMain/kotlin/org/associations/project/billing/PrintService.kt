@@ -45,5 +45,54 @@ interface PrintService {
         settings: AppSettings,
         outputStream: java.io.OutputStream
     )
+
+    /**
+     * Returns a list of paired Bluetooth thermal printers.
+     * Returns empty list on platforms without Bluetooth support (Desktop).
+     */
+    suspend fun getPairedBluetoothPrinters(): List<BluetoothPrinterInfo>
+
+    /**
+     * Prints an invoice directly to a Bluetooth thermal printer using ESC/POS.
+     * Only supported on Android with a POS print format.
+     *
+     * @param invoice The invoice to print
+     * @param subscriber The subscriber info
+     * @param settings App settings (print format, association info, etc.)
+     * @param deviceAddress Bluetooth MAC address of the target printer
+     * @return Result indicating success or failure with a message
+     */
+    suspend fun printInvoiceViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit>
+
+    /**
+     * Prints a payment notification directly to a Bluetooth thermal printer.
+     *
+     * @param invoice The invoice for the notification
+     * @param subscriber The subscriber info
+     * @param settings App settings
+     * @param deviceAddress Bluetooth MAC address of the target printer
+     * @return Result indicating success or failure with a message
+     */
+    suspend fun printNotificationViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit>
+
+    /**
+     * Prints a test page to a Bluetooth thermal printer.
+     * Used to verify the printer connection and settings.
+     *
+     * @param context Any platform context (Android Context on Android)
+     * @param deviceAddress Bluetooth MAC address of the target printer
+     * @return Result indicating success or failure
+     */
+    suspend fun testBluetoothPrint(deviceAddress: String): Result<Unit>
 }
 

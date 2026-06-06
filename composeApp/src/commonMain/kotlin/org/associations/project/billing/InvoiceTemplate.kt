@@ -43,7 +43,7 @@ fun InvoiceTemplate(
     val penaltyValue = if (penaltyApplied) lateFeeAmount else 0.0
     val monthlyFeeValue = if (monthlyFixedFee > 0.0) monthlyFixedFee else 0.0
     val waterChargeValue = (invoice.totalAmount - penaltyValue - monthlyFeeValue).coerceAtLeast(0.0)
-    val isReceipt = printFormat == "RECEIPT"
+    val isReceipt = printFormat == "RECEIPT" || printFormat == "POS"
     val isA5 = printFormat == "A5"
     val padding = when {
         isReceipt -> 12.dp

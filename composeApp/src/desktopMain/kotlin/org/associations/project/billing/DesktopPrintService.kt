@@ -78,7 +78,7 @@ class DesktopPrintService : PrintService {
         val job = PrinterJob.getPrinterJob()
         job.jobName = jobName
 
-        val isReceipt = settings.printFormat == "RECEIPT"
+        val isReceipt = settings.printFormat == "RECEIPT" || settings.printFormat == "POS"
         val isA5 = settings.printFormat == "A5"
 
         val pageFormat = job.defaultPage().clone() as PageFormat
@@ -137,13 +137,13 @@ class DesktopPrintService : PrintService {
                 val totalSize = if (isReceipt) 14 else 16
 
                 // Header: Association name (centered)
-                g2d.font = Font("Dialog", Font.BOLD, titleSize)
+                g2d.font = getArabicFont(Font.BOLD, titleSize)
                 g2d.color = Color.BLACK
                 centerString(g2d, settings.associationName, y, width)
                 y += if (isReceipt) 20 else 25
 
                 // Address and phone (centered)
-                g2d.font = Font("Dialog", Font.PLAIN, bodySize)
+                g2d.font = getArabicFont(Font.PLAIN, bodySize)
                 if (settings.associationAddress.isNotBlank()) {
                     centerString(g2d, settings.associationAddress, y, width)
                     y += if (isReceipt) 12 else 15
@@ -160,7 +160,7 @@ class DesktopPrintService : PrintService {
                 y += if (isReceipt) 15 else 25
 
                 // Title
-                g2d.font = Font("Dialog", Font.BOLD, if (isReceipt) 12 else 16)
+                g2d.font = getArabicFont(Font.BOLD, if (isReceipt) 12 else 16)
                 val title = if (isPaid) "وصل دفع فاتورة الماء" else "فاتورة استهلاك الماء"
                 centerString(g2d, title, y, width)
                 y += if (isReceipt) 18 else 25
@@ -168,14 +168,14 @@ class DesktopPrintService : PrintService {
                 // Paid stamp
                 if (isPaid) {
                     g2d.color = Color(27, 94, 32)
-                    g2d.font = Font("Dialog", Font.BOLD, bodySize)
+                    g2d.font = getArabicFont(Font.BOLD, bodySize)
                     centerString(g2d, "✓ مدفوعة", y, width)
                     g2d.color = Color.BLACK
                     y += if (isReceipt) 16 else 20
                 }
 
                 // Invoice info
-                g2d.font = Font("Dialog", Font.PLAIN, bodySize)
+                g2d.font = getArabicFont(Font.PLAIN, bodySize)
                 val dateLabel = if (isPaid) "تاريخ الدفع" else "التاريخ"
                 g2d.drawString("رقم الفاتورة: ${invoice.id}", marginX, y)
                 g2d.drawString("$dateLabel: ${formatDate(invoice.issueDate)}", marginX + contentWidth / 2, y)
@@ -185,7 +185,7 @@ class DesktopPrintService : PrintService {
                 y += if (isReceipt) 20 else 30
 
                 // Table header
-                g2d.font = Font("Dialog", Font.BOLD, tableHeaderSize)
+                g2d.font = getArabicFont(Font.BOLD, tableHeaderSize)
                 val col1 = marginX
                 val col2 = marginX + contentWidth / 3
                 val col3 = marginX + contentWidth * 2 / 3
@@ -197,7 +197,7 @@ class DesktopPrintService : PrintService {
                 y += if (isReceipt) 12 else 18
 
                 // Table row
-                g2d.font = Font("Dialog", Font.PLAIN, bodySize)
+                g2d.font = getArabicFont(Font.PLAIN, bodySize)
                 g2d.drawString("${invoice.currentReading}", col1, y)
                 g2d.drawString("${invoice.previousReading}", col2, y)
                 g2d.drawString("${invoice.consumption} م³", col3, y)
@@ -206,7 +206,7 @@ class DesktopPrintService : PrintService {
                 y += if (isReceipt) 10 else 15
 
                 // Breakdown
-                g2d.font = Font("Dialog", Font.PLAIN, bodySize)
+                g2d.font = getArabicFont(Font.PLAIN, bodySize)
                 val labelX = marginX
                 val valueX = width - marginX
                 g2d.drawString("استهلاك الماء", labelX, y)
@@ -229,7 +229,7 @@ class DesktopPrintService : PrintService {
                 y += if (isReceipt) 8 else 12
 
                 // Total
-                g2d.font = Font("Dialog", Font.BOLD, totalSize)
+                g2d.font = getArabicFont(Font.BOLD, totalSize)
                 if (isPaid) g2d.color = Color(27, 94, 32)
                 g2d.drawString("المجموع الكلي", labelX, y)
                 rightAlignString(g2d, "${formatAmount(invoice.totalAmount)} درهم", y, valueX)
@@ -239,20 +239,20 @@ class DesktopPrintService : PrintService {
                 // Status box
                 if (isPaid) {
                     g2d.color = Color(27, 94, 32)
-                    g2d.font = Font("Dialog", Font.BOLD, bodySize)
+                    g2d.font = getArabicFont(Font.BOLD, bodySize)
                     centerString(g2d, "مدفوعة ✓ ${formatDate(invoice.issueDate)}", y, width)
                     g2d.color = Color.BLACK
                     y += if (isReceipt) 20 else 30
                 } else if (invoice.dueDate > 0) {
                     g2d.color = Color(191, 54, 12)
-                    g2d.font = Font("Dialog", Font.BOLD, bodySize)
+                    g2d.font = getArabicFont(Font.BOLD, bodySize)
                     centerString(g2d, "اجل الدفع: ${formatDate(invoice.dueDate)}", y, width)
                     g2d.color = Color.BLACK
                     y += if (isReceipt) 20 else 30
                 }
 
                 // Footer
-                g2d.font = Font("Dialog", Font.ITALIC, bodySize)
+                g2d.font = getArabicFont(Font.ITALIC, bodySize)
                 centerString(g2d, "شكرا لالتزامكم بتسديد واجباتكم", y, width)
 
                 return Printable.PAGE_EXISTS
@@ -368,7 +368,20 @@ class DesktopPrintService : PrintService {
                 g2d.drawString("المبلغ المستحق:", labelX, y)
                 rightAlignString(g2d, "${formatAmount(invoice.totalAmount)} درهم", y, valueX)
                 g2d.color = Color.BLACK
-                y += 50
+                y += 25
+
+                // Penalty breakdown (if applied)
+                val penaltyApplied = invoice.isPenaltyApplied == 1L
+                val penaltyValue = if (penaltyApplied) settings.lateFeeAmount else 0.0
+                if (penaltyValue > 0.0) {
+                    g2d.font = getArabicFont(Font.PLAIN, 11)
+                    g2d.color = Color(191, 54, 12)
+                    g2d.drawString("بما فيها غرامة التأخير:", labelX, y)
+                    rightAlignString(g2d, "${formatAmount(penaltyValue)} درهم", y, valueX)
+                    g2d.color = Color.BLACK
+                    y += 22
+                }
+                y += 25
 
                 // Payment deadline
                 if (invoice.dueDate > 0) {
@@ -426,4 +439,25 @@ class DesktopPrintService : PrintService {
         DesktopMonthlyReportRenderer.renderToPdf(report, settings, outputStream)
         outputStream.flush()
     }
+
+    // ── Bluetooth — not supported on Desktop ──
+
+    override suspend fun getPairedBluetoothPrinters(): List<BluetoothPrinterInfo> = emptyList()
+
+    override suspend fun printInvoiceViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit> = Result.failure(UnsupportedOperationException("الطباعة عبر البلوتوث غير مدعومة على سطح المكتب"))
+
+    override suspend fun printNotificationViaBluetooth(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceAddress: String
+    ): Result<Unit> = Result.failure(UnsupportedOperationException("الطباعة عبر البلوتوث غير مدعومة على سطح المكتب"))
+
+    override suspend fun testBluetoothPrint(deviceAddress: String): Result<Unit> =
+        Result.failure(UnsupportedOperationException("الطباعة عبر البلوتوث غير مدعومة على سطح المكتب"))
 }

@@ -37,7 +37,7 @@ class AndroidShareService(private val context: Context) : ShareService {
     }
 
     private fun generateInvoiceImage(invoice: Invoice, subscriber: Subscriber, settings: AppSettings): Bitmap {
-        val isReceipt = settings.printFormat == "RECEIPT"
+        val isReceipt = settings.printFormat == "RECEIPT" || settings.printFormat == "POS"
         // 80mm thermal printer ~ 384 dots wide; A4 use the original 800px layout
         val width = if (isReceipt) 480 else 800
         val height = if (isReceipt) 900 else 1100
