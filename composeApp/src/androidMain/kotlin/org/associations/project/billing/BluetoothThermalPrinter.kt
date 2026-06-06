@@ -7,6 +7,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import java.io.OutputStream
 import java.util.UUID
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Handles Bluetooth connection and ESC/POS bitmap printing to thermal printers.
@@ -18,6 +20,12 @@ object BluetoothThermalPrinter {
 
     /** Standard Bluetooth SPP UUID */
     private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+
+    /**
+     * Mutex that ensures only one Bluetooth print job runs at a time.
+     * Concurrent connections to the same printer cause "Service Discovery failed" errors.
+     */
+    private val printMutex = Mutex()
 
     // ── ESC/POS commands ──
 
@@ -52,7 +60,7 @@ object BluetoothThermalPrinter {
      */
     private fun buildRasterCommand(bitmap: Bitmap, scale: Int = 0): ByteArray {
         // Scale the bitmap to fit 80mm paper (~384-576 dots at 203dpi, ~512 at 8dpmm)
-        val maxWidth = 384  // safe width for most 80mm thermal printers
+        val maxWidth = 576
         val scaledBmp = if (bitmap.width > maxWidth) {
             val ratio = maxWidth.toFloat() / bitmap.width
             Bitmap.createScaledBitmap(bitmap, maxWidth, (bitmap.height * ratio).toInt(), true)
@@ -117,43 +125,76 @@ object BluetoothThermalPrinter {
      * @param deviceAddress Bluetooth MAC address of the printer
      * @return Result indicating success or failure
      */
+    private fun writeInChunks(outputStream: OutputStream, data: ByteArray, chunkSize: Int = 1024, delayMs: Long = 20) {
+        var offset = 0
+        while (offset < data.size) {
+            val len = minOf(chunkSize, data.size - offset)
+            outputStream.write(data, offset, len)
+            outputStream.flush()
+            offset += len
+            if (offset < data.size) {
+                Thread.sleep(delayMs)
+            }
+        }
+    }
+
+    /**
+     * Prints a bitmap to the Bluetooth thermal printer at the given address.
+     *
+     * Uses [printMutex] to guarantee that only one job is active at a time —
+     * concurrent Bluetooth connections to the same device cause "Service Discovery
+     * failed" / "Connection refused" errors.
+     *
+     * @param context Android context (needed for BluetoothAdapter)
+     * @param bitmap The invoice/notification bitmap to print
+     * @param deviceAddress Bluetooth MAC address of the printer
+     * @return Result indicating success or failure
+     */
     suspend fun printBitmap(
         context: Context,
         bitmap: Bitmap,
         deviceAddress: String
-    ): Result<Unit> {
-        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): Result<Unit> = printMutex.withLock {
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val adapter = BluetoothAdapter.getDefaultAdapter()
+                ?: return@withContext Result.failure(Exception("لا يوجد محول بلوتوث"))
+
+            val device: BluetoothDevice = try {
+                adapter.getRemoteDevice(deviceAddress)
+            } catch (e: IllegalArgumentException) {
+                return@withContext Result.failure(Exception("عنوان الطابعة غير صحيح: $deviceAddress"))
+            }
+
+            val socket: BluetoothSocket = device.createRfcommSocketToServiceRecord(SPP_UUID)
             try {
-                val adapter = BluetoothAdapter.getDefaultAdapter()
-                    ?: return@withContext Result.failure(Exception("لا يوجد محول بلوتوث"))
-
-                val device: BluetoothDevice = adapter.getRemoteDevice(deviceAddress)
-                    ?: return@withContext Result.failure(Exception("لم يتم العثور على الطابعة"))
-
-                val socket: BluetoothSocket = device.createRfcommSocketToServiceRecord(SPP_UUID)
                 socket.connect()
 
                 val outputStream: OutputStream = socket.outputStream
 
                 // Init printer
                 outputStream.write(ESC_INIT)
-
-                // Send raster image
-                val rasterCmd = buildRasterCommand(bitmap)
-                outputStream.write(rasterCmd)
-
-                // Feed paper past cutter then partial cut
-                outputStream.write(GS_CUT_FEED(6))
                 outputStream.flush()
-                // Brief wait so printer finishes printing before disconnect
-                Thread.sleep(150)
+                Thread.sleep(50)
+
+                // Send raster image in chunks to prevent buffer overflow/gibberish symbols
+                val rasterCmd = buildRasterCommand(bitmap)
+                writeInChunks(outputStream, rasterCmd)
+
+                // Feed paper and cut exactly once
+                outputStream.write(byteArrayOf(0x1B, 0x64, 6)) // ESC d 6 (feed 6 lines)
+                outputStream.write(byteArrayOf(0x1D, 0x56, 1)) // GS V 1 (partial cut, standard)
+                outputStream.flush()
+
+                // Wait for printer to finish and cut before we disconnect
+                Thread.sleep(1500)
 
                 outputStream.close()
-                socket.close()
-
                 Result.success(Unit)
             } catch (e: Exception) {
                 Result.failure(Exception("فشل الطباعة: ${e.message}"))
+            } finally {
+                // Always close the socket — prevents blocking the next print job
+                try { socket.close() } catch (_: Exception) {}
             }
         }
     }

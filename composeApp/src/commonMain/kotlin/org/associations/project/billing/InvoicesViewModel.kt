@@ -17,6 +17,8 @@ import org.associations.project.database.Invoice
 import org.associations.project.database.Subscriber
 import org.associations.project.database.GetInvoiceById
 
+import com.russhwolf.settings.Settings
+
 data class InvoiceUiModel(
     val id: Long,
     val subscriberName: String?,
@@ -58,8 +60,9 @@ data class InvoicesUiState(
 
 class InvoicesViewModel(
     private val repository: AppRepository,
-    private val printService: PrintService, // Injected
-    private val shareService: ShareService  // Injected
+    private val printService: PrintService,
+    private val shareService: ShareService,
+    private val settings: Settings
 ) : ViewModel() {
     // ...
     // Existing code ...
@@ -401,33 +404,22 @@ class InvoicesViewModel(
     fun printInvoiceOrBluetooth(invoiceId: Long) {
         val format = _uiState.value.printFormat
         if (format == "POS") {
-            showBluetoothPrintDialog(invoiceId)
+            val savedAddress = settings.getString("bluetooth_printer_address", "")
+            if (savedAddress.isNotEmpty()) {
+                printInvoiceViaBluetoothDirectly(invoiceId, savedAddress)
+            } else {
+                showBluetoothPrintDialog(invoiceId)
+            }
         } else {
             printInvoice(invoiceId)
         }
     }
 
-    private fun showBluetoothPrintDialog(invoiceId: Long) {
-        _uiState.update { it.copy(showBluetoothPicker = true, pendingBluetoothInvoiceId = invoiceId, bluetoothPickerLoading = true) }
+    private fun printInvoiceViaBluetoothDirectly(invoiceId: Long, address: String) {
         viewModelScope.launch {
             try {
-                val printers = printService.getPairedBluetoothPrinters()
-                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(bluetoothPickerLoading = false) }
-                showMessage("خطأ في البحث عن الطابعات: ${e.message}")
-            }
-        }
-    }
-
-    fun selectBluetoothPrinter(address: String) {
-        val invoiceId = _uiState.value.pendingBluetoothInvoiceId ?: return
-        _uiState.update { it.copy(showBluetoothPicker = false, pendingBluetoothInvoiceId = null, bluetoothPrinters = emptyList()) }
-
-        viewModelScope.launch {
-            try {
-                val settings = repository.getSettings().first()
-                if (settings == null) {
+                val appSettings = repository.getSettings().first()
+                if (appSettings == null) {
                     showMessage("خطأ: لم يتم العثور على الإعدادات")
                     return@launch
                 }
@@ -461,7 +453,7 @@ class InvoicesViewModel(
                     createdAt = 0
                 )
 
-                val result = printService.printInvoiceViaBluetooth(invoiceEntity, subscriberEntity, settings, address)
+                val result = printService.printInvoiceViaBluetooth(invoiceEntity, subscriberEntity, appSettings, address)
                 result.fold(
                     onSuccess = { showMessage("تمت الطباعة عبر البلوتوث") },
                     onFailure = { showMessage("فشل الطباعة: ${it.message}") }
@@ -470,6 +462,27 @@ class InvoicesViewModel(
                 showMessage("خطأ في الطباعة: ${e.message}")
             }
         }
+    }
+
+    private fun showBluetoothPrintDialog(invoiceId: Long) {
+        _uiState.update { it.copy(showBluetoothPicker = true, pendingBluetoothInvoiceId = invoiceId, bluetoothPickerLoading = true) }
+        viewModelScope.launch {
+            try {
+                val printers = printService.getPairedBluetoothPrinters()
+                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(bluetoothPickerLoading = false) }
+                showMessage("خطأ في البحث عن الطابعات: ${e.message}")
+            }
+        }
+    }
+
+    fun selectBluetoothPrinter(address: String) {
+        val invoiceId = _uiState.value.pendingBluetoothInvoiceId ?: return
+        _uiState.update { it.copy(showBluetoothPicker = false, pendingBluetoothInvoiceId = null, bluetoothPrinters = emptyList()) }
+        settings.putString("bluetooth_printer_address", address)
+
+        printInvoiceViaBluetoothDirectly(invoiceId, address)
     }
 
     fun cancelBluetoothPrint() {

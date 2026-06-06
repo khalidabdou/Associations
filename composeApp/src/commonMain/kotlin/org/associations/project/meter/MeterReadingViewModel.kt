@@ -448,8 +448,21 @@ class MeterReadingViewModel(
                         isActive = 1,
                         createdAt = 0
                 )
-                printService.printNotification(invoice, subscriber, appSettings)
-                showMessage("تم إرسال إشعار الدفع للطباعة")
+                if (appSettings.printFormat == "POS") {
+                    val savedAddress = settings.getString("bluetooth_printer_address", "")
+                    if (savedAddress.isNotEmpty()) {
+                        val result = printService.printNotificationViaBluetooth(invoice, subscriber, appSettings, savedAddress)
+                        result.fold(
+                            onSuccess = { showMessage("تمت طباعة الإشعار عبر البلوتوث") },
+                            onFailure = { showMessage("فشل الطباعة: ${it.message}") }
+                        )
+                    } else {
+                        showMessage("يرجى إعداد واختبار طابعة البلوتوث في الإعدادات أولاً")
+                    }
+                } else {
+                    printService.printNotification(invoice, subscriber, appSettings)
+                    showMessage("تم إرسال إشعار الدفع للطباعة")
+                }
             } catch (e: Exception) {
                 showMessage("خطأ في الطباعة: ${e.message}")
             }
@@ -550,12 +563,36 @@ class MeterReadingViewModel(
                 val printItems = if (copies > 1) items.flatMap { item -> List(copies) { item } } else items
                 val totalPages = printItems.size
                 val month = _uiState.value.selectedMonth
-                printService.printInvoices(
-                        items = printItems,
-                        settings = appSettings,
-                        jobName = "Invoices ${month.month}-${month.year} (${items.size} × ${copies})"
-                )
-                showMessage("تم إرسال ${items.size} فاتورة × ${copies} نسخة (${totalPages} صفحة) للطباعة")
+
+                if (appSettings.printFormat == "POS") {
+                    // Bluetooth path — print each invoice sequentially.
+                    // BluetoothThermalPrinter.printMutex ensures they don't run concurrently.
+                    val savedAddress = settings.getString("bluetooth_printer_address", "")
+                    if (savedAddress.isEmpty()) {
+                        showMessage("يرجى إعداد واختبار طابعة البلوتوث في الإعدادات أولاً")
+                        return@launch
+                    }
+                    var successCount = 0
+                    for ((invoice, subscriber) in printItems) {
+                        val result = printService.printInvoiceViaBluetooth(invoice, subscriber, appSettings, savedAddress)
+                        result.fold(
+                            onSuccess = { successCount++ },
+                            onFailure = {
+                                showMessage("فشل الطباعة للمشترك ${subscriber.fullName}: ${it.message}")
+                                return@launch
+                            }
+                        )
+                    }
+                    showMessage("تمت طباعة $successCount فاتورة عبر البلوتوث")
+                } else {
+                    // System print path (A4 / A5) — requires Activity context, not Application context.
+                    printService.printInvoices(
+                            items = printItems,
+                            settings = appSettings,
+                            jobName = "Invoices ${month.month}-${month.year} (${items.size} × ${copies})"
+                    )
+                    showMessage("تم إرسال ${items.size} فاتورة × ${copies} نسخة ($totalPages صفحة) للطباعة")
+                }
                 clearSelection()
             } catch (e: Exception) {
                 showMessage("خطأ في الطباعة: ${e.message}")

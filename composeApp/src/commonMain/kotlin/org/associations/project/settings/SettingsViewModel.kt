@@ -527,10 +527,11 @@ class SettingsViewModel(
 
     fun selectBluetoothPrinterForTest(address: String) {
         _uiState.update { it.copy(showBluetoothTestDialog = false, bluetoothPrinters = emptyList()) }
+        settings.putString("bluetooth_printer_address", address)
         viewModelScope.launch {
             val result = printService.testBluetoothPrint(address)
             result.fold(
-                onSuccess = { showMessage("تمت الطباعة التجريبية بنجاح") },
+                onSuccess = { showMessage("تمت الطباعة التجريبية بنجاح وحفظ الطابعة") },
                 onFailure = { showMessage("فشل الطباعة: ${it.message}") }
             )
         }

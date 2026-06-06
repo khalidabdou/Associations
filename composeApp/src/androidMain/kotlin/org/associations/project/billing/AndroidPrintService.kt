@@ -1,5 +1,6 @@
 package org.associations.project.billing
 
+import android.R.attr.height
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -594,10 +595,11 @@ class AndroidPrintService(private val context: Context) : PrintService {
             isA5 -> 874
             else -> 1240
         }
-        val height = when {
-            isReceipt -> 1200
-            isA5 -> 1240
-            else -> 1754
+        // Use a tall canvas and crop to actual content height later (avoids blank space at bottom)
+        val maxHeight = when {
+            isReceipt -> 2000
+            isA5 -> 2400
+            else -> 3000
         }
         val margin = when {
             isReceipt -> 32f
@@ -635,7 +637,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             else -> 44f
         }
 
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(width, maxHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
         val bgPaint = Paint().apply { color = Color.WHITE }
@@ -825,7 +827,10 @@ class AndroidPrintService(private val context: Context) : PrintService {
             y += boxHeight + (if (isReceipt) 24f else 40f)
         }
 
-        return bitmap
+        // Crop bitmap to actual content height + small bottom padding (eliminates blank space)
+        val bottomPadding = if (isReceipt) 40 else 60
+        val cropHeight = (y + bottomPadding).toInt().coerceAtMost(maxHeight)
+        return Bitmap.createBitmap(bitmap, 0, 0, width, cropHeight)
     }
 
     private fun generateNotificationImage(
@@ -840,10 +845,11 @@ class AndroidPrintService(private val context: Context) : PrintService {
             isA5 -> 874
             else -> 1240
         }
-        val height = when {
-            isReceipt -> 900
-            isA5 -> 1100
-            else -> 1400
+        // Use a tall canvas and crop to actual content height later (avoids blank space at bottom)
+        val maxHeight = when {
+            isReceipt -> 1800
+            isA5 -> 2200
+            else -> 2800
         }
         val margin = when {
             isReceipt -> 32f
@@ -866,10 +872,10 @@ class AndroidPrintService(private val context: Context) : PrintService {
             else -> 44f
         }
 
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(width, maxHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val bgPaint = Paint().apply { color = Color.WHITE }
-        canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+        canvas.drawRect(0f, 0f, width.toFloat(), maxHeight.toFloat(), bgPaint)
 
         val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
         var y = margin + 20f
@@ -962,7 +968,10 @@ class AndroidPrintService(private val context: Context) : PrintService {
             y += dueBoxH + (if (isReceipt) 24f else 40f)
         }
 
-        return bitmap
+        // Crop bitmap to actual content height + small bottom padding (eliminates blank space)
+        val bottomPadding = if (isReceipt) 40 else 60
+        val cropHeight = (y + bottomPadding).toInt().coerceAtMost(maxHeight)
+        return Bitmap.createBitmap(bitmap, 0, 0, width, cropHeight)
     }
 
     private fun formatAmount(value: Double): String {
@@ -1022,7 +1031,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
     }
 
     private fun generateTestPrintBitmap(): Bitmap {
-        val width = 384
+        val width = 576
         val height = 300
         val margin = 24f
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)

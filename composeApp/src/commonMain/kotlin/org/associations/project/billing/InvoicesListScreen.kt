@@ -440,8 +440,8 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         )
                     }
                 } else {
-                    Column {
-                        uiState.bluetoothPrinters.forEach { printer ->
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(uiState.bluetoothPrinters) { printer ->
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()

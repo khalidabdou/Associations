@@ -3,6 +3,7 @@ package org.associations.project.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -170,17 +171,10 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                     }
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         RadioButton(
-                                                selected = uiState.printFormat == "RECEIPT",
-                                                onClick = { viewModel.updatePrintFormat("RECEIPT") }
-                                        )
-                                        Text("طابعة إيصالات (80mm)")
-                                    }
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        RadioButton(
                                                 selected = uiState.printFormat == "POS",
                                                 onClick = { viewModel.updatePrintFormat("POS") }
                                         )
-                                        Text("طابعة حرارية POS (80mm)")
+                                        Text("طابعة حرارية (80mm) POS")
                                     }
                                     // Test print button for POS
                                     if (uiState.printFormat == "POS") {
@@ -714,8 +708,8 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                         )
                     }
                 } else {
-                    Column {
-                        uiState.bluetoothPrinters.forEach { printer ->
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(uiState.bluetoothPrinters) { printer ->
                             Surface(
                                 modifier = Modifier
                                     .fillMaxWidth()
