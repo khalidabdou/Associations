@@ -179,15 +179,47 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                     // Test print button for POS
                                     if (uiState.printFormat == "POS") {
                                         Spacer(modifier = Modifier.height(8.dp))
+                                        // Connection type toggle
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            FilterChip(
+                                                selected = uiState.printerConnectionType == "BLUETOOTH",
+                                                onClick = { viewModel.setPrinterConnectionType("BLUETOOTH") },
+                                                label = { Text("بلوتوث") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.Bluetooth, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                }
+                                            )
+                                            FilterChip(
+                                                selected = uiState.printerConnectionType == "USB",
+                                                onClick = { viewModel.setPrinterConnectionType("USB") },
+                                                label = { Text("USB") },
+                                                leadingIcon = {
+                                                    Icon(Icons.Default.Usb, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                }
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
                                         Button(
-                                            onClick = { viewModel.showBluetoothTestPrint() },
+                                            onClick = {
+                                                if (uiState.printerConnectionType == "USB") {
+                                                    viewModel.showUsbTestPrint()
+                                                } else {
+                                                    viewModel.showBluetoothTestPrint()
+                                                }
+                                            },
                                             colors = ButtonDefaults.buttonColors(
                                                 containerColor = MaterialTheme.colorScheme.secondaryContainer
                                             )
                                         ) {
                                             Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
-                                            Text("اختبار الطباعة عبر البلوتوث")
+                                            Text(
+                                                if (uiState.printerConnectionType == "USB") "اختبار الطباعة عبر USB"
+                                                else "اختبار الطباعة عبر البلوتوث"
+                                            )
                                         }
                                     }
                                 }
@@ -673,6 +705,8 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
         }
     }
 
+    // Connection Type Picker Dialog (generic — shows either Bluetooth or USB list)
+
     // Bluetooth Test Print Picker Dialog
     if (uiState.showBluetoothTestDialog) {
         AlertDialog(
@@ -750,6 +784,89 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
             confirmButton = {},
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelBluetoothTestPrint() }) {
+                    Text(Strings.cancel)
+                }
+            }
+        )
+    }
+
+    // USB Test Print Picker Dialog
+    if (uiState.showUsbTestDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelUsbTestPrint() },
+            icon = { Icon(Icons.Default.Usb, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            title = { Text("اختيار طابعة USB") },
+            text = {
+                if (uiState.usbPickerLoading) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("جار البحث عن الطابعات...")
+                    }
+                } else if (uiState.usbPrinters.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            "لا توجد طابعات USB متصلة",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "تأكد من توصيل كابل USB بالطابعة",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        items(uiState.usbPrinters) { printer ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                onClick = { viewModel.selectUsbPrinterForTest(printer.deviceId) }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Usb,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            printer.deviceName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            "VID: ${printer.vendorId.toString(16)} PID: ${printer.productId.toString(16)}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelUsbTestPrint() }) {
                     Text(Strings.cancel)
                 }
             }

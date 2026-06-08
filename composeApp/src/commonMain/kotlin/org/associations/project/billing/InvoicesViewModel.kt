@@ -404,14 +404,73 @@ class InvoicesViewModel(
     fun printInvoiceOrBluetooth(invoiceId: Long) {
         val format = _uiState.value.printFormat
         if (format == "POS") {
-            val savedAddress = settings.getString("bluetooth_printer_address", "")
-            if (savedAddress.isNotEmpty()) {
-                printInvoiceViaBluetoothDirectly(invoiceId, savedAddress)
+            val connectionType = settings.getString("printer_connection_type", "BLUETOOTH")
+            if (connectionType == "USB") {
+                val deviceId = settings.getInt("usb_printer_device_id", -1)
+                if (deviceId >= 0) {
+                    printInvoiceViaUsbDirectly(invoiceId, deviceId)
+                } else {
+                    showMessage("يرجى إعداد واختبار طابعة USB في الإعدادات أولاً")
+                }
             } else {
-                showBluetoothPrintDialog(invoiceId)
+                val savedAddress = settings.getString("bluetooth_printer_address", "")
+                if (savedAddress.isNotEmpty()) {
+                    printInvoiceViaBluetoothDirectly(invoiceId, savedAddress)
+                } else {
+                    showBluetoothPrintDialog(invoiceId)
+                }
             }
         } else {
             printInvoice(invoiceId)
+        }
+    }
+
+    private fun printInvoiceViaUsbDirectly(invoiceId: Long, deviceId: Int) {
+        viewModelScope.launch {
+            try {
+                val appSettings = repository.getSettings().first()
+                if (appSettings == null) {
+                    showMessage("خطأ: لم يتم العثور على الإعدادات")
+                    return@launch
+                }
+                val details = repository.getInvoiceDetailsOnce(invoiceId)
+                if (details == null) {
+                    showMessage("خطأ: الفاتورة غير موجودة")
+                    return@launch
+                }
+
+                val invoiceEntity = Invoice(
+                    id = details.id,
+                    subscriberId = details.subscriberId,
+                    previousReading = details.previousReading,
+                    currentReading = details.currentReading,
+                    consumption = details.consumption,
+                    totalAmount = details.totalAmount,
+                    status = details.status,
+                    issueDate = details.issueDate,
+                    dueDate = details.dueDate,
+                    isPenaltyApplied = details.isPenaltyApplied
+                )
+
+                val subscriberEntity = Subscriber(
+                    id = details.subscriberId,
+                    fullName = details.subscriberName ?: "Unknown",
+                    phone = null,
+                    meterNumber = details.meterNumber ?: "",
+                    address = details.address,
+                    zoneId = 0,
+                    isActive = 1,
+                    createdAt = 0
+                )
+
+                val result = printService.printInvoiceViaUsb(invoiceEntity, subscriberEntity, appSettings, deviceId)
+                result.fold(
+                    onSuccess = { showMessage("تمت الطباعة عبر USB") },
+                    onFailure = { showMessage("فشل الطباعة: ${it.message}") }
+                )
+            } catch (e: Exception) {
+                showMessage("خطأ في الطباعة: ${e.message}")
+            }
         }
     }
 

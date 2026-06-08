@@ -6,6 +6,9 @@
 
     <!-- Bluetooth for POS thermal printer -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
+
+    <!-- USB Host for POS thermal printer via cable -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN"

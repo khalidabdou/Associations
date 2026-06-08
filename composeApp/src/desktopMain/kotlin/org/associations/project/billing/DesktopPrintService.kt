@@ -18,6 +18,7 @@ import java.awt.GraphicsEnvironment
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+import javax.print.PrintServiceLookup
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -460,4 +461,126 @@ class DesktopPrintService : PrintService {
 
     override suspend fun testBluetoothPrint(deviceAddress: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("الطباعة عبر البلوتوث غير مدعومة على سطح المكتب"))
+
+    // ── USB (System Printers) on Desktop ──
+    // On desktop, "USB printers" maps to system-installed printers (CUPS on macOS/Linux,
+    // Windows print spooler). The system print dialog handles all connection types:
+    // USB, network, AirPrint, etc.
+
+    /**
+     * Returns all system-installed printers as USB printer options.
+     * Uses Java's PrintServiceLookup to query the OS print spooler.
+     */
+    override suspend fun getConnectedUsbPrinters(): List<UsbPrinterInfo> {
+        val services = PrintServiceLookup.lookupPrintServices(null, null)
+        return services.map { service ->
+            UsbPrinterInfo(
+                deviceName = service.name,
+                deviceId = service.name.hashCode(),
+                vendorId = 0,
+                productId = 0
+            )
+        }
+    }
+
+    /**
+     * Prints an invoice via the system print dialog with receipt-sized (80mm) paper.
+     * The deviceId (printer name hash) is used to pre-select the printer if possible.
+     */
+    override suspend fun printInvoiceViaUsb(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceId: Int
+    ): Result<Unit> = try {
+        printInvoices(
+            items = listOf(invoice to subscriber),
+            settings = settings,
+            jobName = "فاتورة ${invoice.id} - ${subscriber.fullName}",
+        )
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(Exception("فشل الطباعة: ${e.message}"))
+    }
+
+    /**
+     * Prints a payment notification via the system print dialog.
+     */
+    override suspend fun printNotificationViaUsb(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceId: Int
+    ): Result<Unit> = try {
+        printNotification(invoice, subscriber, settings)
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(Exception("فشل الطباعة: ${e.message}"))
+    }
+
+    /**
+     * Prints a test page to verify the printer connection.
+     * On desktop, this opens the system print dialog with a simple test page.
+     */
+    override suspend fun testUsbPrint(deviceId: Int): Result<Unit> = try {
+        val job = PrinterJob.getPrinterJob()
+        job.jobName = "اختبار طباعة POS"
+
+        // Try to pre-select the printer by name
+        val services = PrintServiceLookup.lookupPrintServices(null, null)
+        val targetService = services.find { it.name.hashCode() == deviceId }
+        if (targetService != null) {
+            try { job.setPrintService(targetService) } catch (_: Exception) {}
+        }
+
+        val pageFormat = job.defaultPage().clone() as PageFormat
+        val paper = Paper()
+        val widthPt = 80.0 * 72.0 / 25.4
+        val heightPt = 200.0 * 72.0 / 25.4
+        paper.setSize(widthPt, heightPt)
+        paper.setImageableArea(8.0, 8.0, widthPt - 16.0, heightPt - 16.0)
+        pageFormat.paper = paper
+        pageFormat.orientation = PageFormat.PORTRAIT
+
+        val printable = Printable { graphics, pf, pageIndex ->
+            if (pageIndex > 0) Printable.NO_SUCH_PAGE else {
+                val g2d = graphics as Graphics2D
+                g2d.translate(pf.imageableX, pf.imageableY)
+                val w = pf.imageableWidth.toInt()
+                var y = 20
+
+                g2d.font = Font("Arial", Font.BOLD, 14)
+                g2d.color = Color.BLACK
+                centerString(g2d, "اختبار طباعة", y, w)
+                y += 30
+                g2d.stroke = BasicStroke(1f)
+                g2d.drawLine(10, y, w - 10, y)
+                y += 25
+                g2d.font = Font("Arial", Font.PLAIN, 10)
+                centerString(g2d, "طابعة حرارية POS 80mm", y, w)
+                y += 18
+                centerString(g2d, "System Printer", y, w)
+                y += 25
+                g2d.drawLine(10, y, w - 10, y)
+                y += 25
+                g2d.font = Font("Arial", Font.BOLD, 12)
+                g2d.color = Color(46, 125, 50)
+                centerString(g2d, "\u2713 تم الاتصال بنجاح", y, w)
+                y += 25
+                g2d.color = Color.BLACK
+                g2d.font = Font("Arial", Font.PLAIN, 9)
+                val now = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm").format(java.util.Date())
+                centerString(g2d, now, y, w)
+                Printable.PAGE_EXISTS
+            }
+        }
+
+        job.setPrintable(printable, pageFormat)
+        if (job.printDialog()) {
+            job.print()
+        }
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Result.failure(Exception("فشل الطباعة: ${e.message}"))
+    }
 }

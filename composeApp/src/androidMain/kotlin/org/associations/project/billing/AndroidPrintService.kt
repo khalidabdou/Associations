@@ -871,6 +871,11 @@ class AndroidPrintService(private val context: Context) : PrintService {
             isA5 -> 34f
             else -> 44f
         }
+        val logoSize = when {
+            isReceipt -> 110f
+            isA5 -> 140f
+            else -> 180f
+        }
 
         val bitmap = Bitmap.createBitmap(width, maxHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -879,6 +884,25 @@ class AndroidPrintService(private val context: Context) : PrintService {
 
         val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
         var y = margin + 20f
+
+        // Logo
+        if (!settings.logoPath.isNullOrBlank()) {
+            try {
+                val logoFile = File(settings.logoPath)
+                if (logoFile.exists()) {
+                    val logoBitmap = android.graphics.BitmapFactory.decodeFile(settings.logoPath)
+                    if (logoBitmap != null) {
+                        val logoLeft = (width - logoSize) / 2f
+                        val src = Rect(0, 0, logoBitmap.width, logoBitmap.height)
+                        val dst = RectF(logoLeft, y, logoLeft + logoSize, y + logoSize)
+                        canvas.drawBitmap(logoBitmap, src, dst, null)
+                        y += logoSize + (if (isReceipt) 16f else 30f)
+                    }
+                }
+            } catch (e: Exception) {
+                println("Error loading logo for notification: ${e.message}")
+            }
+        }
 
         // Header - Association Name
         blackPaint.textSize = titleSize
@@ -914,7 +938,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
         val boxPaint = Paint().apply { color = Color.rgb(255, 253, 231); style = Paint.Style.FILL }
         val boxBorder = Paint().apply { color = Color.rgb(245, 176, 65); style = Paint.Style.STROKE; strokeWidth = 3f }
         val boxTop = y - 20f
-        val boxBottom = y + lineGap * 5 + 30f
+        val boxBottom = y + lineGap * 8 + 30f
         val rect = RectF(margin, boxTop, width - margin, boxBottom)
         canvas.drawRoundRect(rect, 12f, 12f, boxPaint)
         canvas.drawRoundRect(rect, 12f, 12f, boxBorder)
@@ -928,7 +952,13 @@ class AndroidPrintService(private val context: Context) : PrintService {
         y += lineGap
         drawRightAlignedText(canvas, blackPaint, "رقم الفاتورة: ${invoice.id}", width - margin - 20f, y)
         y += lineGap + 10f
-
+        // Water consumption details
+        drawRightAlignedText(canvas, blackPaint, "القراءة الحالية: ${invoice.currentReading}", width - margin - 20f, y)
+        y += lineGap
+        drawRightAlignedText(canvas, blackPaint, "القراءة السابقة: ${invoice.previousReading}", width - margin - 20f, y)
+        y += lineGap
+        drawRightAlignedText(canvas, blackPaint, "الاستهلاك: ${invoice.consumption} م³", width - margin - 20f, y)
+        y += lineGap
         // Amount due (highlighted)
         blackPaint.textSize = bodySize + 6f
         blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
@@ -1027,6 +1057,45 @@ class AndroidPrintService(private val context: Context) : PrintService {
         return withContext(Dispatchers.IO) {
             val bitmap = generateTestPrintBitmap()
             BluetoothThermalPrinter.printBitmap(context, bitmap, deviceAddress)
+        }
+    }
+
+    // ── USB thermal printer ──
+
+    override suspend fun getConnectedUsbPrinters(): List<UsbPrinterInfo> {
+        return withContext(Dispatchers.IO) {
+            UsbThermalPrinter.getConnectedDevices(context)
+        }
+    }
+
+    override suspend fun printInvoiceViaUsb(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceId: Int
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateInvoiceImage(invoice, subscriber, settings)
+            UsbThermalPrinter.printBitmap(context, bitmap, deviceId)
+        }
+    }
+
+    override suspend fun printNotificationViaUsb(
+        invoice: Invoice,
+        subscriber: Subscriber,
+        settings: AppSettings,
+        deviceId: Int
+    ): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateNotificationImage(invoice, subscriber, settings)
+            UsbThermalPrinter.printBitmap(context, bitmap, deviceId)
+        }
+    }
+
+    override suspend fun testUsbPrint(deviceId: Int): Result<Unit> {
+        return withContext(Dispatchers.IO) {
+            val bitmap = generateTestPrintBitmap()
+            UsbThermalPrinter.printBitmap(context, bitmap, deviceId)
         }
     }
 

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.russhwolf.settings.Settings
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.associations.project.billing.UsbPrinterInfo
 import org.associations.project.billing.BluetoothPrinterInfo
 import org.associations.project.billing.PrintService
 import org.associations.project.database.PricingTier
@@ -42,7 +43,13 @@ data class SettingsUiState(
         // Bluetooth test print picker
         val showBluetoothTestDialog: Boolean = false,
         val bluetoothPrinters: List<BluetoothPrinterInfo> = emptyList(),
-        val bluetoothPickerLoading: Boolean = false
+        val bluetoothPickerLoading: Boolean = false,
+        // USB test print picker
+        val showUsbTestDialog: Boolean = false,
+        val usbPrinters: List<UsbPrinterInfo> = emptyList(),
+        val usbPickerLoading: Boolean = false,
+        // Which connection type is selected for POS prints
+        val printerConnectionType: String = "BLUETOOTH" // "BLUETOOTH" or "USB"
 )
 
 class SettingsViewModel(
@@ -63,7 +70,8 @@ class SettingsViewModel(
         _uiState.update {
             it.copy(
                     isActivated = licenseRepository.isActivated(),
-                    allowPastMonthEditing = settings.getBoolean(KEY_ALLOW_PAST_MONTH_EDITING, false)
+                    allowPastMonthEditing = settings.getBoolean(KEY_ALLOW_PAST_MONTH_EDITING, false),
+                    printerConnectionType = settings.getString("printer_connection_type", "BLUETOOTH")
             )
         }
         refreshActivationStatus()
@@ -535,6 +543,49 @@ class SettingsViewModel(
                 onFailure = { showMessage("فشل الطباعة: ${it.message}") }
             )
         }
+    }
+
+    // ── USB test print ──
+
+    fun showUsbTestPrint() {
+        _uiState.update { it.copy(showUsbTestDialog = true, usbPickerLoading = true) }
+        viewModelScope.launch {
+            try {
+                val printers = printService.getConnectedUsbPrinters()
+                _uiState.update { it.copy(usbPrinters = printers, usbPickerLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(usbPickerLoading = false) }
+                showMessage("خطأ في البحث عن طابعات USB: ${e.message}")
+            }
+        }
+    }
+
+    fun selectUsbPrinterForTest(deviceId: Int) {
+        _uiState.update { it.copy(showUsbTestDialog = false, usbPrinters = emptyList()) }
+        settings.putString("printer_connection_type", "USB")
+        settings.putInt("usb_printer_device_id", deviceId)
+        viewModelScope.launch {
+            val result = printService.testUsbPrint(deviceId)
+            result.fold(
+                onSuccess = { showMessage("تمت الطباعة التجريبية بنجاح وحفظ الطابعة") },
+                onFailure = { showMessage("فشل الطباعة: ${it.message}") }
+            )
+        }
+    }
+
+    fun cancelUsbTestPrint() {
+        _uiState.update { it.copy(showUsbTestDialog = false, usbPrinters = emptyList()) }
+    }
+
+    /**
+     * Switches the printer connection type between BLUETOOTH and USB.
+     * Called when the user taps the connection type toggle.
+     */
+    fun setPrinterConnectionType(type: String) {
+        settings.putString("printer_connection_type", type)
+        _uiState.update { it.copy(printerConnectionType = type) }
+        val label = if (type == "USB") "USB" else "بلوتوث"
+        showMessage("تم تبديل نوع الاتصال إلى $label")
     }
 
     fun cancelBluetoothTestPrint() {
