@@ -465,36 +465,54 @@ class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFa
         val today = Clock.System.now().toEpochMilliseconds()
         val dayMs = 86_400_000L
 
-        // Check if we already have subscribers
-        val existingSubscribers = queries.getAllSubscribers().executeAsList()
-        if (existingSubscribers.size >= 3) {
-            println("Seed skipped: ${existingSubscribers.size} subscribers already exist")
-            return
+        // Ensure settings exist and have test values (so penalty and monthly fee are not 0)
+        val currentSettings = queries.getSettings().executeAsOneOrNull()
+        val lateFeeToUse = if (currentSettings == null || currentSettings.lateFeeAmount <= 0.0) 5.0 else currentSettings.lateFeeAmount
+        val monthlyFeeToUse = if (currentSettings == null || currentSettings.monthlyFixedFee <= 0.0) 10.0 else currentSettings.monthlyFixedFee
+
+        if (currentSettings != null) {
+            queries.updateSettings(
+                lateFeeToUse,
+                monthlyFeeToUse,
+                currentSettings.gracePeriodDays,
+                currentSettings.dueDateDays,
+                currentSettings.associationName,
+                currentSettings.associationAddress,
+                currentSettings.associationPhone,
+                currentSettings.printFormat,
+                currentSettings.logoPath
+            )
         }
 
-        // Create a test zone
-        queries.insertZone("منطقة تجريبية", "منطقة لاختبار الغرامات")
-        val zones = queries.getAllZones().executeAsList()
-        val zoneId = zones.last().id
+        // Create a test zone if it doesn't exist
+        val existingZones = queries.getAllZones().executeAsList()
+        val testZoneName = "منطقة تجريبية"
+        var zoneId = existingZones.find { it.name == testZoneName }?.id
+        if (zoneId == null) {
+            queries.insertZone(testZoneName, "منطقة لاختبار الغرامات")
+            val zones = queries.getAllZones().executeAsList()
+            zoneId = zones.last().id
+        }
 
         // Create test subscribers
         val subscriberData = listOf(
-            Triple("أحمد بن علي", "0600000001", 100L),
-            Triple("فاطمة الزهراء", "0600000002", 150L),
-            Triple("محمد الخليفي", "0600000003", 80L),
-            Triple("عائشة السعيد", "0600000004", 200L)
+            Triple("أحمد بن علي (تجريبي)", "0600000001", 100L),
+            Triple("فاطمة الزهراء (تجريبي)", "0600000002", 150L),
+            Triple("محمد الخليفي (تجريبي)", "0600000003", 80L),
+            Triple("عائشة السعيد (تجريبي)", "0600000004", 200L)
         )
 
         subscriberData.forEach { (name, phone, meter) ->
-            queries.insertSubscriber(name, phone, "M-$meter", "عنوان $name", zoneId, 1, today)
+            queries.insertSubscriber(name, phone, "M-$meter", "عنوان $name", zoneId!!, 1, today)
         }
         val allSubs = queries.getAllSubscribers().executeAsList()
         val subscriberIds = allSubs.takeLast(subscriberData.size).map { it.id }
 
-        // Create past dates for penalty testing
-        // Issue date = 45 days ago, due date = 15 days ago (past due)
-        val issueDate = today - (45 * dayMs)
-        val dueDate = today - (15 * dayMs)
+        // Create past dates for penalty testing:
+        // Issue date = 25 days ago (falls in last month)
+        // Due date = 5 days ago (past due, triggers penalty)
+        val issueDate = today - (25 * dayMs)
+        val dueDate = today - (5 * dayMs)
 
         // Create UNPAID invoices with past due dates
         subscriberIds.forEachIndexed { index, sid ->
@@ -533,8 +551,8 @@ class AppRepository(db: AppDatabase, private val driverFactory: DatabaseDriverFa
         }
 
         // Create a recent invoice (not yet due, should not get penalty)
-        val recentIssueDate = today - (5 * dayMs)
-        val recentDueDate = today + (25 * dayMs)
+        val recentIssueDate = today - (2 * dayMs)
+        val recentDueDate = today + (28 * dayMs)
         if (subscriberIds.isNotEmpty()) {
             queries.insertInvoice(
                 subscriberId = subscriberIds[0],

@@ -414,15 +414,6 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                                                 MaterialTheme.colorScheme.error
                                                 )
                                 ) { Text("محو جميع البيانات") }
-                                Button(
-                                        onClick = { viewModel.seedTestData() },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors =
-                                                ButtonDefaults.buttonColors(
-                                                        containerColor =
-                                                                MaterialTheme.colorScheme.tertiary
-                                                )
-                                ) { Text("إنشاء بيانات تجريبية (غرامات)") }
                             }
                         }
                     }

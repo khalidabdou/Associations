@@ -48,7 +48,14 @@ fun NavGraph(
 ) {
     NavHost(navController = navController, startDestination = startDestination) {
         composable<Screen.Activation> {
-            ActivationScreen(onNavigateToDashboard = { navController.popBackStack() })
+            ActivationScreen(onNavigateToDashboard = {
+                val popped = navController.popBackStack()
+                if (!popped) {
+                    navController.navigate(Screen.Dashboard) {
+                        popUpTo(Screen.Activation) { inclusive = true }
+                    }
+                }
+            })
         }
         composable<Screen.Dashboard> {
             DashboardScreen(

@@ -286,8 +286,8 @@ class AndroidPrintService(private val context: Context) : PrintService {
         val lineGap = 40f
 
         val pages = mutableListOf<Bitmap>()
-        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
-        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+        val blackPaint = Paint().apply { color = Color.rgb(50, 50, 50); isAntiAlias = true }
+        val linePaint = Paint().apply { color = Color.rgb(50, 50, 50); strokeWidth = 2f }
 
         // ── Helper to create a new page ──
         fun newPage(): Pair<Bitmap, Canvas> {
@@ -462,7 +462,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
                 blackPaint.color = Color.rgb(191, 54, 12)
             }
             canvas1.drawText(statusText, colStat, y, blackPaint)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = Color.rgb(50, 50, 50)
             y += lineGap
             invoiceIndex = i + 1
         }
@@ -512,7 +512,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
                     blackPaint.color = Color.rgb(191, 54, 12)
                 }
                 canvas.drawText(statusText, colStat, y, blackPaint)
-                blackPaint.color = Color.BLACK
+                blackPaint.color = Color.rgb(50, 50, 50)
                 y += lineGap
             }
             invoiceIndex += rowsThisPage
@@ -552,7 +552,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
                         blackPaint.color = Color.rgb(27, 94, 32)
                     }
                     canvas.drawText(typeText, colTType, y, blackPaint)
-                    blackPaint.color = Color.BLACK
+                    blackPaint.color = Color.rgb(50, 50, 50)
                     canvas.drawText(txn.category, colTCat, y, blackPaint)
                     canvas.drawText("${formatAmount(txn.amount)}", colTAmt, y, blackPaint)
                     canvas.drawText(txn.description ?: "", colTDesc, y, blackPaint)
@@ -643,7 +643,8 @@ class AndroidPrintService(private val context: Context) : PrintService {
         val bgPaint = Paint().apply { color = Color.WHITE }
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
-        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
+        val darkColor = if (isReceipt) Color.BLACK else Color.rgb(50, 50, 50)
+        val blackPaint = Paint().apply { color = darkColor; isAntiAlias = true }
         val contentWidth = width - margin * 2
         var y = margin
 
@@ -685,7 +686,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
         y += 15f
 
         // Divider
-        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+        val linePaint = Paint().apply { color = darkColor; strokeWidth = 2f }
         canvas.drawLine(margin, y, width - margin, y, linePaint)
         y += if (isReceipt) 30f else 50f
 
@@ -722,7 +723,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             val boxBottom = y + bodySize + 8f
             canvas.drawRoundRect(RectF(boxLeft, y - bodySize, boxRight, boxBottom), 6f, 6f, stampPaint)
             drawCenteredText(canvas, blackPaint, stampText, y, width)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += boxBottom - (y - bodySize) + 6f
         }
 
@@ -769,7 +770,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
         drawRightAlignedText(canvas, blackPaint, "استهلاك الماء", width - margin, y)
         canvas.drawText("${formatAmount(waterChargeValue)} درهم", margin, y, blackPaint)
         y += lineGap
-        if (monthlyFeeValue > 0.0) {
+        if (isReceipt && monthlyFeeValue > 0.0) {
             drawRightAlignedText(canvas, blackPaint, "الرسوم الشهرية", width - margin, y)
             canvas.drawText("${formatAmount(monthlyFeeValue)} درهم", margin, y, blackPaint)
             y += lineGap
@@ -778,7 +779,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             blackPaint.color = Color.rgb(191, 54, 12)
             drawRightAlignedText(canvas, blackPaint, "غرامة التأخير", width - margin, y)
             canvas.drawText("${formatAmount(penaltyValue)} درهم", margin, y, blackPaint)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += lineGap
         }
         y += if (isReceipt) 8f else 16f
@@ -789,7 +790,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
         if (isPaid) blackPaint.color = Color.rgb(27, 94, 32)
         drawRightAlignedText(canvas, blackPaint, "المجموع الكلي", width - margin, y)
         canvas.drawText("${formatAmount(invoice.totalAmount)} درهم", margin, y, blackPaint)
-        blackPaint.color = Color.BLACK
+        blackPaint.color = darkColor
         y += if (isReceipt) 50f else 80f
 
         // Status box
@@ -808,7 +809,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
                 "مدفوعة ✓ تاريخ الدفع: ${issueDate.date}",
                 y + boxHeight / 2 + bodySize / 3, width
             )
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += boxHeight + (if (isReceipt) 24f else 40f)
         } else if (invoice.dueDate > 0) {
             val dueDate = Instant.fromEpochMilliseconds(invoice.dueDate)
@@ -823,7 +824,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             blackPaint.textSize = bodySize
             blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             drawCenteredText(canvas, blackPaint, "اجل الدفع: ${dueDate.date}", y + boxHeight / 2 + bodySize / 3, width)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += boxHeight + (if (isReceipt) 24f else 40f)
         }
 
@@ -882,7 +883,8 @@ class AndroidPrintService(private val context: Context) : PrintService {
         val bgPaint = Paint().apply { color = Color.WHITE }
         canvas.drawRect(0f, 0f, width.toFloat(), maxHeight.toFloat(), bgPaint)
 
-        val blackPaint = Paint().apply { color = Color.BLACK; isAntiAlias = true }
+        val darkColor = if (isReceipt) Color.BLACK else Color.rgb(50, 50, 50)
+        val blackPaint = Paint().apply { color = darkColor; isAntiAlias = true }
         var y = margin + 20f
 
         // Logo
@@ -924,7 +926,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
         y += 20f
 
         // Divider
-        val linePaint = Paint().apply { color = Color.BLACK; strokeWidth = 2f }
+        val linePaint = Paint().apply { color = darkColor; strokeWidth = 2f }
         canvas.drawLine(margin, y, width - margin, y, linePaint)
         y += if (isReceipt) 30f else 50f
 
@@ -974,10 +976,10 @@ class AndroidPrintService(private val context: Context) : PrintService {
             blackPaint.typeface = Typeface.DEFAULT
             blackPaint.color = Color.rgb(191, 54, 12)
             drawRightAlignedText(canvas, blackPaint, "بما فيها غرامة التأخير: ${formatAmount(penaltyValue)} درهم", width - margin - 20f, y)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += lineGap
         }
-        blackPaint.color = Color.BLACK
+        blackPaint.color = darkColor
         y += 20f
 
         // Payment deadline
@@ -994,7 +996,7 @@ class AndroidPrintService(private val context: Context) : PrintService {
             blackPaint.textSize = bodySize
             blackPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             drawCenteredText(canvas, blackPaint, "اجل الدفع: ${dueDate.date}", y + dueBoxH / 2 + bodySize / 3, width)
-            blackPaint.color = Color.BLACK
+            blackPaint.color = darkColor
             y += dueBoxH + (if (isReceipt) 24f else 40f)
         }
 

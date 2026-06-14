@@ -3,6 +3,7 @@ package org.associations.project
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -42,59 +43,68 @@ fun App() {
                                 currentRoute.contains("Entry") ||
                                 currentRoute.contains("Add")
 
-                MainLayout(
-                        currentRoute =
-                                when {
-                                    currentRoute.contains("Dashboard") -> "dashboard"
-                                    currentRoute.contains("Subscriber") -> "members"
-                                    currentRoute.contains("Meter") ||
-                                            currentRoute.contains("Reading") -> "readings"
-                                    currentRoute.contains("Invoice") -> "invoices"
-                                    currentRoute.contains("Treasury") ||
-                                            currentRoute.contains("Transaction") -> "treasury"
-                                    currentRoute.contains("Maintenance") ||
-                                            currentRoute.contains("Ticket") -> "maintenance"
-                                    currentRoute.contains("Settings") ||
-                                            currentRoute.contains("Zone") ||
-                                            currentRoute.contains("Activation") -> "settings"
-                                    else -> "dashboard"
-                                },
-                        onNavigate = { navItem ->
-                            when (navItem) {
-                                NavItem.Dashboard ->
-                                        navController.navigate(Screen.Dashboard) {
-                                            popUpTo(Screen.Dashboard) { inclusive = true }
-                                        }
-                                NavItem.Members ->
-                                        navController.navigate(Screen.SubscriberList) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                                NavItem.Readings ->
-                                        navController.navigate(Screen.MeterReading) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                                NavItem.Invoices ->
-                                        navController.navigate(Screen.InvoicesList) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                                NavItem.Treasury ->
-                                        navController.navigate(Screen.Treasury) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                                NavItem.Maintenance ->
-                                        navController.navigate(Screen.MaintenanceList) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                                NavItem.Settings ->
-                                        navController.navigate(Screen.Settings) {
-                                            popUpTo(Screen.Dashboard)
-                                        }
-                            }
-                        },
-                        showBackButton = isDetailScreen,
-                        onBackClick = { navController.popBackStack() },
-                        title = Strings.appName
-                ) { NavGraph(navController = navController, startDestination = Screen.Dashboard) }
+                val startDestination = if (isActivated) Screen.Dashboard else Screen.Activation
+                val isNavigatingToActivation = currentRoute.contains("Activation") || (currentRoute.isEmpty() && !isActivated)
+
+                if (isNavigatingToActivation) {
+                    Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        NavGraph(navController = navController, startDestination = startDestination)
+                    }
+                } else {
+                    MainLayout(
+                            currentRoute =
+                                    when {
+                                        currentRoute.contains("Dashboard") -> "dashboard"
+                                        currentRoute.contains("Subscriber") -> "members"
+                                        currentRoute.contains("Meter") ||
+                                                currentRoute.contains("Reading") -> "readings"
+                                        currentRoute.contains("Invoice") -> "invoices"
+                                        currentRoute.contains("Treasury") ||
+                                                currentRoute.contains("Transaction") -> "treasury"
+                                        currentRoute.contains("Maintenance") ||
+                                                currentRoute.contains("Ticket") -> "maintenance"
+                                        currentRoute.contains("Settings") ||
+                                                currentRoute.contains("Zone") ||
+                                                currentRoute.contains("Activation") -> "settings"
+                                        else -> "dashboard"
+                                    },
+                            onNavigate = { navItem ->
+                                when (navItem) {
+                                    NavItem.Dashboard ->
+                                            navController.navigate(Screen.Dashboard) {
+                                                popUpTo(Screen.Dashboard) { inclusive = true }
+                                            }
+                                    NavItem.Members ->
+                                            navController.navigate(Screen.SubscriberList) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                    NavItem.Readings ->
+                                            navController.navigate(Screen.MeterReading) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                    NavItem.Invoices ->
+                                            navController.navigate(Screen.InvoicesList) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                    NavItem.Treasury ->
+                                            navController.navigate(Screen.Treasury) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                    NavItem.Maintenance ->
+                                            navController.navigate(Screen.MaintenanceList) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                    NavItem.Settings ->
+                                            navController.navigate(Screen.Settings) {
+                                                popUpTo(Screen.Dashboard)
+                                            }
+                                }
+                            },
+                            showBackButton = isDetailScreen,
+                            onBackClick = { navController.popBackStack() },
+                            title = Strings.appName
+                    ) { NavGraph(navController = navController, startDestination = startDestination) }
+                }
             }
         }
     }
