@@ -1,31 +1,47 @@
-Build started at: Mon Jun 15 12:10:01 +01 2026
-Reusing configuration cache.
+Build started at: Mon Jun 15 13:02:42 +01 2026
+Calculating task graph as configuration cache cannot be reused because file 'composeApp/build.gradle.kts' has changed.
+Type-safe project accessors is an incubating feature.
+
+> Configure project :composeApp
+w: Kotlin Multiplatform <-> Android Gradle Plugin compatibility issue:
+The applied Android Gradle Plugin version (8.11.2) is higher 
+than the maximum known to the Kotlin Gradle Plugin.
+Tooling stability in such configuration isn't tested, please report encountered issues to https://kotl.in/issue
+
+Minimum supported Android Gradle Plugin version: 7.1
+Maximum tested Android Gradle Plugin version: 8.5
+
+To suppress this message add 'kotlin.mpp.androidGradlePluginCompatibility.nowarn=true' to your gradle.properties
+
+
 > Task :composeApp:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :composeApp:copyNonXmlValueResourcesForDesktopMain NO-SOURCE
 > Task :composeApp:convertXmlValueResourcesForDesktopMain NO-SOURCE
-> Task :composeApp:unpackDefaultComposeDesktopJvmApplicationResources UP-TO-DATE
-> Task :composeApp:prepareAppResources NO-SOURCE
 > Task :composeApp:generateExpectResourceCollectorsForCommonMain UP-TO-DATE
+> Task :composeApp:prepareAppResources NO-SOURCE
 > Task :composeApp:generateComposeResClass UP-TO-DATE
 > Task :composeApp:prepareComposeResourcesTaskForDesktopMain NO-SOURCE
+> Task :composeApp:unpackDefaultComposeDesktopJvmApplicationResources UP-TO-DATE
+> Task :composeApp:generateCommonMainAppDatabaseInterface UP-TO-DATE
 > Task :composeApp:copyNonXmlValueResourcesForCommonMain UP-TO-DATE
 > Task :composeApp:generateResourceAccessorsForDesktopMain NO-SOURCE
-> Task :composeApp:generateCommonMainAppDatabaseInterface UP-TO-DATE
 > Task :composeApp:convertXmlValueResourcesForCommonMain NO-SOURCE
 > Task :composeApp:prepareComposeResourcesTaskForCommonMain UP-TO-DATE
-> Task :composeApp:assembleDesktopMainResources UP-TO-DATE
 > Task :composeApp:generateResourceAccessorsForCommonMain UP-TO-DATE
+> Task :composeApp:assembleDesktopMainResources UP-TO-DATE
 > Task :composeApp:generateActualResourceCollectorsForDesktopMain UP-TO-DATE
 > Task :composeApp:desktopProcessResources UP-TO-DATE
-> Task :composeApp:compileKotlinDesktop UP-TO-DATE
-> Task :composeApp:desktopMainClasses UP-TO-DATE
-> Task :composeApp:desktopJar UP-TO-DATE
 > Task :composeApp:checkRuntime UP-TO-DATE
 > Task :composeApp:createRuntimeImage UP-TO-DATE
-> Task :composeApp:createDistributable UP-TO-DATE
+> Task :composeApp:compileKotlinDesktop UP-TO-DATE
+> Task :composeApp:desktopMainClasses UP-TO-DATE
+> Task :composeApp:desktopJar
+
+> Task :composeApp:createDistributable
+The distribution is written to /Users/khalid/Documents/GitHub/Associations/composeApp/build/compose/binaries/main/app
 
 > Task :composeApp:packageDmg
-The distribution is written to /Users/khalid/Documents/GitHub/Associations/composeApp/build/compose/binaries/main/dmg/Associations-1.0.0.dmg
+The distribution is written to /Users/khalid/Documents/GitHub/Associations/composeApp/build/compose/binaries/main/dmg/Associations-1.0.1.dmg
 
 [Incubating] Problems report is available at: file:///Users/khalid/Documents/GitHub/Associations/build/reports/problems/problems-report.html
 
@@ -35,6 +51,6 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 26s
-16 actionable tasks: 1 executed, 15 up-to-date
-Configuration cache entry reused.
+BUILD SUCCESSFUL in 52s
+16 actionable tasks: 3 executed, 13 up-to-date
+Configuration cache entry stored.

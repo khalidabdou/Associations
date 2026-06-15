@@ -797,15 +797,15 @@ class DesktopPrintService : PrintService {
             var stream: java.io.FileOutputStream? = null
             try {
                 var retries = 5
-                val delayMs = 1500L
+                val delayMs = 2000L
                 println("[DesktopPrintService] Opening file stream connection to $sanitizedAddress ...")
                 while (retries > 0) {
                     try {
-                        stream = if (isWindows) {
-                            java.io.FileOutputStream(sanitizedAddress)
-                        } else {
-                            java.io.FileOutputStream(File(sanitizedAddress))
-                        }
+                        // Use O_NONBLOCK via RandomAccessFile trick: open for rw to avoid
+                        // blocking on macOS RFCOMM carrier-detect wait
+                        val raf = java.io.RandomAccessFile(sanitizedAddress, "rw")
+                        stream = java.io.FileOutputStream(raf.fd)
+                        raf.close() // close RAF handle but keep the fd alive via stream
                         println("[DesktopPrintService] Connection opened successfully. Allowing RFCOMM link to settle...")
                         delay(1500)
                         break
@@ -834,13 +834,13 @@ class DesktopPrintService : PrintService {
                 println("[DesktopPrintService] Streaming raster image data (${rasterCmd.size} bytes)...")
                 // Write in chunks to prevent printer buffer overflow
                 var offset = 0
-                val chunkSize = 1024
+                val chunkSize = 512
                 while (offset < rasterCmd.size) {
                     val len = minOf(chunkSize, rasterCmd.size - offset)
                     stream.write(rasterCmd, offset, len)
                     stream.flush()
                     offset += len
-                    delay(20)
+                    delay(30)
                 }
 
                 println("[DesktopPrintService] Sending feed and cut commands...")
@@ -849,16 +849,30 @@ class DesktopPrintService : PrintService {
                 stream.write(byteArrayOf(0x1D, 0x56, 0x41, 0x00)) // full cut
                 stream.flush()
 
+                // Sync OS buffers to device before closing
+                try { stream.fd.sync() } catch (_: Exception) {}
+                // Allow printer to finish processing before we close the channel
+                delay(800)
+
                 println("[DesktopPrintService] Closing stream...")
                 try { stream.close() } catch (_: Exception) {}
+                stream = null
+
+                // Critical: wait for macOS to fully release the RFCOMM channel
+                // Without this delay, the next print attempt fails to open the port
+                delay(2000)
+
                 println("[DesktopPrintService] Print job completed successfully.")
                 Result.success(Unit)
             } catch (e: Exception) {
                 println("[DesktopPrintService] ERROR during print: ${e.message}")
                 e.printStackTrace()
                 if (stream != null) {
+                    try { stream.flush() } catch (_: Exception) {}
                     try { stream.close() } catch (_: Exception) {}
                 }
+                // Wait for port release even on error
+                delay(2000)
                 Result.failure(Exception("خطأ أثناء الطباعة: ${e.message}"))
             }
         }
