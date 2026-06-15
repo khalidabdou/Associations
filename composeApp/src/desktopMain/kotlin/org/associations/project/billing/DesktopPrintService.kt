@@ -249,13 +249,13 @@ class DesktopPrintService : PrintService {
             g2d.font = getArabicFont(Font.PLAIN, bodySize)
             val dateLabel = if (isPaid) "تاريخ الدفع" else "التاريخ"
             if (isReceipt) {
-                drawArabic(g2d, "المشترك: ${subscriber.fullName}", marginX, y)
+                rightAlignString(g2d, "المشترك: ${subscriber.fullName}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "العداد: ${subscriber.meterNumber}", marginX, y)
+                rightAlignString(g2d, "العداد: ${subscriber.meterNumber}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "رقم الفاتورة: ${invoice.id}", marginX, y)
+                rightAlignString(g2d, "رقم الفاتورة: ${invoice.id}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "$dateLabel: ${formatDate(invoice.issueDate)}", marginX, y)
+                rightAlignString(g2d, "$dateLabel: ${formatDate(invoice.issueDate)}", y, width - marginX)
                 y += 20
             } else {
                 // A4/A5: left-aligned Arabic labels on left, right-aligned on right
@@ -292,20 +292,20 @@ class DesktopPrintService : PrintService {
             g2d.font = getArabicFont(Font.PLAIN, bodySize)
             val labelX = marginX
             val valueX = width - marginX
-            drawArabic(g2d, "استهلاك الماء", labelX, y)
-            rightAlignString(g2d, "${formatAmount(waterChargeValue)} درهم", y, valueX)
+            rightAlignString(g2d, "استهلاك الماء", y, valueX)
+            drawArabic(g2d, "${formatAmount(waterChargeValue)} درهم", labelX, y)
             y += if (isReceipt) 14 else 18
 
             if (isReceipt && monthlyFeeValue > 0.0) {
-                drawArabic(g2d, "الرسوم الشهرية", labelX, y)
-                rightAlignString(g2d, "${formatAmount(monthlyFeeValue)} درهم", y, valueX)
+                rightAlignString(g2d, "الرسوم الشهرية", y, valueX)
+                drawArabic(g2d, "${formatAmount(monthlyFeeValue)} درهم", labelX, y)
                 y += 14
             }
 
             if (penaltyValue > 0.0) {
                 g2d.color = Color(191, 54, 12)
-                drawArabic(g2d, "غرامة التأخير", labelX, y)
-                rightAlignString(g2d, "${formatAmount(penaltyValue)} درهم", y, valueX)
+                rightAlignString(g2d, "غرامة التأخير", y, valueX)
+                drawArabic(g2d, "${formatAmount(penaltyValue)} درهم", labelX, y)
                 g2d.color = textColor
                 y += if (isReceipt) 14 else 18
             }
@@ -314,8 +314,8 @@ class DesktopPrintService : PrintService {
             // Total
             g2d.font = getArabicFont(Font.BOLD, totalSize)
             if (isPaid) g2d.color = Color(27, 94, 32)
-            drawArabic(g2d, "المجموع الكلي", labelX, y)
-            rightAlignString(g2d, "${formatAmount(invoice.totalAmount)} درهم", y, valueX)
+            rightAlignString(g2d, "المجموع الكلي", y, valueX)
+            drawArabic(g2d, "${formatAmount(invoice.totalAmount)} درهم", labelX, y)
             g2d.color = textColor
             y += if (isReceipt) 25 else 35
 
@@ -416,32 +416,32 @@ class DesktopPrintService : PrintService {
             if (isReceipt) {
                 // POS/Receipt: Stack details to prevent text overlaps
                 g2d.font = getArabicFont(Font.PLAIN, bodySize)
-                drawArabic(g2d, "المشترك: ${subscriber.fullName}", marginX, y)
+                rightAlignString(g2d, "المشترك: ${subscriber.fullName}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "العداد: ${subscriber.meterNumber}", marginX, y)
+                rightAlignString(g2d, "العداد: ${subscriber.meterNumber}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "رقم الفاتورة: ${invoice.id}", marginX, y)
+                rightAlignString(g2d, "رقم الفاتورة: ${invoice.id}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "القراءة الحالية: ${invoice.currentReading}", marginX, y)
+                rightAlignString(g2d, "القراءة الحالية: ${invoice.currentReading}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "القراءة السابقة: ${invoice.previousReading}", marginX, y)
+                rightAlignString(g2d, "القراءة السابقة: ${invoice.previousReading}", y, width - marginX)
                 y += 14
-                drawArabic(g2d, "الاستهلاك: ${invoice.consumption} م³", marginX, y)
+                rightAlignString(g2d, "الاستهلاك: ${invoice.consumption} م³", y, width - marginX)
                 y += 18
 
                 g2d.drawLine(marginX, y, width - marginX, y)
                 y += 15
 
                 g2d.font = getArabicFont(Font.BOLD, bodySize)
-                drawArabic(g2d, "المبلغ المستحق:", marginX, y)
-                rightAlignString(g2d, "${formatAmount(invoice.totalAmount)} درهم", y, width - marginX)
+                rightAlignString(g2d, "المبلغ المستحق:", y, width - marginX)
+                drawArabic(g2d, "${formatAmount(invoice.totalAmount)} درهم", marginX, y)
                 y += 16
 
                 if (penaltyValue > 0.0) {
                     g2d.font = getArabicFont(Font.PLAIN, bodySize)
                     g2d.color = Color(191, 54, 12)
-                    drawArabic(g2d, "بما فيها غرامة التأخير:", marginX, y)
-                    rightAlignString(g2d, "${formatAmount(penaltyValue)} درهم", y, width - marginX)
+                    rightAlignString(g2d, "بما فيها غرامة التأخير:", y, width - marginX)
+                    drawArabic(g2d, "${formatAmount(penaltyValue)} درهم", marginX, y)
                     g2d.color = textColor
                     y += 16
                 }
