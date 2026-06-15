@@ -24,6 +24,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.delay
 import org.associations.project.utils.ArabicShaper
 import java.awt.font.TextLayout
 import java.awt.font.TextAttribute
@@ -32,8 +33,6 @@ import java.text.AttributedString
 class DesktopPrintService : PrintService {
 
     private val printMutex = Mutex()
-    private var activeOutputStream: java.io.FileOutputStream? = null
-    private var activeDeviceAddress: String? = null
 
     /**
      * Shape Arabic text for proper connected glyph forms.
@@ -567,14 +566,18 @@ class DesktopPrintService : PrintService {
         pageFormat.paper = paper
         pageFormat.orientation = PageFormat.PORTRAIT
 
-        val printable = createInvoicePrintable(items, settings)
+        val basePrintable = createInvoicePrintable(items, settings)
+        val printable = if (isReceipt) ImageWrapperPrintable(basePrintable) else basePrintable
         job.setPrintable(printable, pageFormat)
         if (job.printDialog()) {
             try {
                 job.print()
             } catch (e: Exception) {
                 e.printStackTrace()
+                throw e
             }
+        } else {
+            throw Exception("تم إلغاء عملية الطباعة من قبل المستخدم")
         }
     }
 
@@ -588,21 +591,30 @@ class DesktopPrintService : PrintService {
 
         val pageFormat = job.defaultPage().clone() as PageFormat
         val paper = Paper()
-        val widthPt = 148.0 * 72.0 / 25.4  // A5-ish for notifications
-        val heightPt = 210.0 * 72.0 / 25.4
+        val isReceipt = settings.printFormat == "RECEIPT" || settings.printFormat == "POS"
+        val widthPt = if (isReceipt) (80.0 * 72.0 / 25.4) else (148.0 * 72.0 / 25.4)
+        val heightPt = if (isReceipt) (300.0 * 72.0 / 25.4) else (210.0 * 72.0 / 25.4)
         paper.setSize(widthPt, heightPt)
-        paper.setImageableArea(20.0, 20.0, widthPt - 40.0, heightPt - 40.0)
+        if (isReceipt) {
+            paper.setImageableArea(8.0, 8.0, widthPt - 16.0, heightPt - 16.0)
+        } else {
+            paper.setImageableArea(20.0, 20.0, widthPt - 40.0, heightPt - 40.0)
+        }
         pageFormat.paper = paper
         pageFormat.orientation = PageFormat.PORTRAIT
 
-        val printable = createNotificationPrintable(invoice, subscriber, settings)
+        val basePrintable = createNotificationPrintable(invoice, subscriber, settings)
+        val printable = if (isReceipt) ImageWrapperPrintable(basePrintable) else basePrintable
         job.setPrintable(printable, pageFormat)
         if (job.printDialog()) {
             try {
                 job.print()
             } catch (e: Exception) {
                 e.printStackTrace()
+                throw e
             }
+        } else {
+            throw Exception("تم إلغاء عملية الطباعة من قبل المستخدم")
         }
     }
 
@@ -639,7 +651,7 @@ class DesktopPrintService : PrintService {
     // ── Bluetooth Printing Support on macOS (via virtual serial port /dev/tty.*) ──
 
     private fun renderPrintableToBitmap(printable: Printable, pageFormat: PageFormat): BufferedImage {
-        val widthPx = 576
+        val widthPx = 560
         val widthPt = pageFormat.paper.width
         val scale = widthPx / widthPt
         val heightPx = (pageFormat.paper.height * scale).toInt()
@@ -722,18 +734,50 @@ class DesktopPrintService : PrintService {
         return header + rasterData
     }
 
+    private fun isMacBluetoothOn(): Boolean {
+        try {
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", "system_profiler SPBluetoothDataType | grep \"State:\""))
+            val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+            val line = reader.readLine()
+            process.destroy()
+            if (line != null && line.contains("Off")) {
+                return false
+            }
+        } catch (_: Exception) {}
+        return true
+    }
+
     private suspend fun printInvoiceOrNotificationViaBluetooth(
         printable: Printable,
         deviceAddress: String
     ): Result<Unit> = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val osName = System.getProperty("os.name").lowercase()
+        val isWindows = osName.contains("win")
+        val isMac = osName.contains("mac")
+
+        println("[DesktopPrintService] Starting Bluetooth print job to address: $deviceAddress")
+
+        if (isMac) {
+            println("[DesktopPrintService] Checking macOS Bluetooth power state...")
+            if (!isMacBluetoothOn()) {
+                println("[DesktopPrintService] ERROR: macOS Bluetooth is powered OFF.")
+                return@withContext Result.failure(Exception("بلوتوث الماك غير مفعل. يرجى تفعيل البلوتوث أولاً."))
+            }
+            println("[DesktopPrintService] macOS Bluetooth is ON.")
+        }
+
         val sanitizedAddress = if (deviceAddress.startsWith("/dev/tty.")) {
             deviceAddress.replace("/dev/tty.", "/dev/cu.")
         } else {
             deviceAddress
         }
-        val file = File(sanitizedAddress)
-        if (!file.exists()) {
-            return@withContext Result.failure(Exception("منفذ الطابعة غير موجود أو غير متصل: $sanitizedAddress"))
+        
+        if (!isWindows) {
+            val file = File(sanitizedAddress)
+            if (!file.exists()) {
+                println("[DesktopPrintService] ERROR: Device port file does not exist: $sanitizedAddress")
+                return@withContext Result.failure(Exception("منفذ الطابعة غير موجود أو غير متصل: $sanitizedAddress"))
+            }
         }
 
         val widthPt = 80.0 * 72.0 / 25.4
@@ -750,38 +794,44 @@ class DesktopPrintService : PrintService {
         val rasterCmd = buildRasterCommand(bitmap)
 
         printMutex.withLock {
-            if (activeDeviceAddress != sanitizedAddress || activeOutputStream == null) {
-                try { activeOutputStream?.close() } catch (_: Exception) {}
-                activeOutputStream = null
-                activeDeviceAddress = null
-
-                var outputStream: java.io.FileOutputStream? = null
+            var stream: java.io.FileOutputStream? = null
+            try {
                 var retries = 5
                 val delayMs = 1500L
+                println("[DesktopPrintService] Opening file stream connection to $sanitizedAddress ...")
                 while (retries > 0) {
                     try {
-                        outputStream = java.io.FileOutputStream(file)
-                        Thread.sleep(1500) // allow Bluetooth RFCOMM link to settle
+                        stream = if (isWindows) {
+                            java.io.FileOutputStream(sanitizedAddress)
+                        } else {
+                            java.io.FileOutputStream(File(sanitizedAddress))
+                        }
+                        println("[DesktopPrintService] Connection opened successfully. Allowing RFCOMM link to settle...")
+                        delay(1500)
                         break
                     } catch (e: Exception) {
                         retries--
+                        println("[DesktopPrintService] Connection attempt failed (retries left: $retries): ${e.message}")
                         if (retries == 0) {
+                            println("[DesktopPrintService] ERROR: All connection retries exhausted.")
                             return@withLock Result.failure(Exception("منفذ الطابعة مشغول أو غير جاهز. يرجى الانتظار والمحاولة مرة أخرى: ${e.message}"))
                         }
-                        Thread.sleep(delayMs)
+                        delay(delayMs)
                     }
                 }
-                activeOutputStream = outputStream
-                activeDeviceAddress = sanitizedAddress
-            }
 
-            val stream = activeOutputStream!!
-            try {
+                if (stream == null) {
+                    println("[DesktopPrintService] ERROR: Stream is null.")
+                    return@withLock Result.failure(Exception("فشل فتح منفذ الطابعة"))
+                }
+
+                println("[DesktopPrintService] Sending ESC/POS initialization command...")
                 // ESC @ (Init)
                 stream.write(byteArrayOf(0x1B, 0x40))
                 stream.flush()
-                Thread.sleep(50)
+                delay(50)
 
+                println("[DesktopPrintService] Streaming raster image data (${rasterCmd.size} bytes)...")
                 // Write in chunks to prevent printer buffer overflow
                 var offset = 0
                 val chunkSize = 1024
@@ -790,25 +840,65 @@ class DesktopPrintService : PrintService {
                     stream.write(rasterCmd, offset, len)
                     stream.flush()
                     offset += len
-                    Thread.sleep(20)
+                    delay(20)
                 }
 
-                // Feed and cut
-                stream.write(byteArrayOf(0x1B, 0x64, 6)) // feed 6 lines
-                stream.write(byteArrayOf(0x1D, 0x56, 1)) // partial cut
+                println("[DesktopPrintService] Sending feed and cut commands...")
+                // Feed + full cut (highly compatible)
+                stream.write(byteArrayOf(0x1B, 0x64, 0x04))       // feed 4 lines
+                stream.write(byteArrayOf(0x1D, 0x56, 0x41, 0x00)) // full cut
                 stream.flush()
 
+                println("[DesktopPrintService] Closing stream...")
+                try { stream.close() } catch (_: Exception) {}
+                println("[DesktopPrintService] Print job completed successfully.")
                 Result.success(Unit)
             } catch (e: Exception) {
-                try { stream.close() } catch (_: Exception) {}
-                activeOutputStream = null
-                activeDeviceAddress = null
+                println("[DesktopPrintService] ERROR during print: ${e.message}")
+                e.printStackTrace()
+                if (stream != null) {
+                    try { stream.close() } catch (_: Exception) {}
+                }
                 Result.failure(Exception("خطأ أثناء الطباعة: ${e.message}"))
             }
         }
     }
 
     override suspend fun getPairedBluetoothPrinters(): List<BluetoothPrinterInfo> {
+        val osName = System.getProperty("os.name").lowercase()
+        if (osName.contains("win")) {
+            val ports = mutableListOf<BluetoothPrinterInfo>()
+            try {
+                val process = Runtime.getRuntime().exec("reg query HKLM\\HARDWARE\\DEVICEMAP\\SERIALCOMM")
+                val reader = java.io.BufferedReader(java.io.InputStreamReader(process.inputStream))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    if (line!!.contains("REG_SZ")) {
+                        val parts = line!!.split(Regex("\\s+"))
+                        val comPort = parts.lastOrNull { it.startsWith("COM", ignoreCase = true) }
+                        if (comPort != null) {
+                            ports.add(
+                                BluetoothPrinterInfo(
+                                    name = "Bluetooth Printer ($comPort)",
+                                    address = comPort
+                                )
+                            )
+                        }
+                    }
+                }
+                process.waitFor()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            if (ports.isEmpty()) {
+                // Fallback to COM1..COM9
+                for (i in 1..9) {
+                    ports.add(BluetoothPrinterInfo("Bluetooth Printer (COM$i)", "COM$i"))
+                }
+            }
+            return ports
+        }
+
         val devDir = File("/dev")
         if (!devDir.exists() || !devDir.isDirectory) return emptyList()
 

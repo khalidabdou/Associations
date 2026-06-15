@@ -528,7 +528,14 @@ class InvoicesViewModel(
         viewModelScope.launch {
             try {
                 val printers = printService.getPairedBluetoothPrinters()
-                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+                val isDesktop = org.associations.project.getPlatform().name.startsWith("Java")
+                if (printers.isEmpty() && isDesktop) {
+                    _uiState.update { it.copy(showBluetoothPicker = false, pendingBluetoothInvoiceId = null, bluetoothPickerLoading = false) }
+                    showMessage("لم يتم العثور على طابعات بلوتوث. جاري التحويل إلى طباعة النظام...")
+                    printInvoice(invoiceId)
+                } else {
+                    _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(bluetoothPickerLoading = false) }
                 showMessage("خطأ في البحث عن الطابعات: ${e.message}")

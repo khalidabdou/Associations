@@ -180,6 +180,7 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                     if (uiState.printFormat == "POS") {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         // Connection type toggle
+                                        val isDesktop = !org.associations.project.getPlatform().name.startsWith("Android")
                                         Row(
                                             modifier = Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -195,13 +196,21 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                             FilterChip(
                                                 selected = uiState.printerConnectionType == "USB",
                                                 onClick = { viewModel.setPrinterConnectionType("USB") },
-                                                label = { Text("USB") },
+                                                label = { Text(if (isDesktop) "USB / طابعة النظام" else "USB") },
                                                 leadingIcon = {
                                                     Icon(Icons.Default.Usb, contentDescription = null, modifier = Modifier.size(16.dp))
                                                 }
                                             )
                                         }
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                        if (isDesktop) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "تنبيه للماك والويندوز: لطباعة البلوتوث يفضل تعريف الطابعة في إعدادات النظام واختيار (USB / طابعة النظام)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.secondary
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
                                         Button(
                                             onClick = {
                                                 if (uiState.printerConnectionType == "USB") {
@@ -217,8 +226,11 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                                             Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                if (uiState.printerConnectionType == "USB") "اختبار الطباعة عبر USB"
-                                                else "اختبار الطباعة عبر البلوتوث"
+                                                if (uiState.printerConnectionType == "USB") {
+                                                    if (isDesktop) "اختبار الطباعة عبر طابعة النظام" else "اختبار الطباعة عبر USB"
+                                                } else {
+                                                    "اختبار الطباعة عبر البلوتوث"
+                                                }
                                             )
                                         }
                                     }

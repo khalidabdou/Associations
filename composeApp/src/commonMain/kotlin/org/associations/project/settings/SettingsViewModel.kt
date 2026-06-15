@@ -525,7 +525,13 @@ class SettingsViewModel(
         viewModelScope.launch {
             try {
                 val printers = printService.getPairedBluetoothPrinters()
-                _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+                val isDesktop = org.associations.project.getPlatform().name.startsWith("Java")
+                if (printers.isEmpty() && isDesktop) {
+                    _uiState.update { it.copy(showBluetoothTestDialog = false, bluetoothPickerLoading = false) }
+                    showMessage("لم يتم العثور على طابعات بلوتوث. يرجى إعداد طابعة USB أو التأكد من إقران طابعة بلوتوث")
+                } else {
+                    _uiState.update { it.copy(bluetoothPrinters = printers, bluetoothPickerLoading = false) }
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(bluetoothPickerLoading = false) }
                 showMessage("خطأ في البحث عن الطابعات: ${e.message}")
