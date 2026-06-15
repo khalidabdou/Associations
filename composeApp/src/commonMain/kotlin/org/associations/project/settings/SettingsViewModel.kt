@@ -14,6 +14,8 @@ import org.associations.project.reports.MonthlyReportData
 import org.associations.project.repository.AppRepository
 import org.associations.project.repository.LicenseRepository
 import org.associations.project.utils.MonthYear
+import org.associations.project.utils.AppUpdater
+import org.associations.project.utils.UpdateState
 
 data class SettingsUiState(
         val zones: List<Zone> = emptyList(),
@@ -49,21 +51,22 @@ data class SettingsUiState(
         val usbPrinters: List<UsbPrinterInfo> = emptyList(),
         val usbPickerLoading: Boolean = false,
         // Which connection type is selected for POS prints
-        val printerConnectionType: String = "BLUETOOTH" // "BLUETOOTH" or "USB"
+        val printerConnectionType: String = "BLUETOOTH", // "BLUETOOTH" or "USB"
+        val updateState: UpdateState = UpdateState.Idle,
+        val appVersion: String = org.associations.project.utils.APP_VERSION
 )
 
 class SettingsViewModel(
         private val repository: AppRepository,
         private val licenseRepository: LicenseRepository,
         private val settings: Settings,
-        private val printService: PrintService
+        private val printService: PrintService,
+        private val appUpdater: AppUpdater
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    companion object {
-        private const val KEY_ALLOW_PAST_MONTH_EDITING = "allow_past_month_editing"
-    }
+    private val KEY_ALLOW_PAST_MONTH_EDITING = "allow_past_month_editing"
 
     init {
         // Seed with last known local state, then re-verify against Supabase
@@ -76,6 +79,12 @@ class SettingsViewModel(
         }
         refreshActivationStatus()
         loadData()
+
+        viewModelScope.launch {
+            appUpdater.state.collect { state ->
+                _uiState.update { it.copy(updateState = state) }
+            }
+        }
     }
 
     /**
@@ -125,7 +134,9 @@ class SettingsViewModel(
                         reportMonth = _uiState.value.reportMonth,
                         isPrintingReport = _uiState.value.isPrintingReport,
                         isExportingReport = _uiState.value.isExportingReport,
-                        isExportingCsv = _uiState.value.isExportingCsv
+                        isExportingCsv = _uiState.value.isExportingCsv,
+                        updateState = _uiState.value.updateState,
+                        appVersion = _uiState.value.appVersion
                 )
             }
                     .catch { e ->
@@ -133,7 +144,7 @@ class SettingsViewModel(
                             it.copy(
                                     isLoading = false,
                                     message =
-                                            "خطأ في تحميل البيانات: ${e.message}\nيرجى حذف ملف قاعدة البيانات لإعادة الإنشاء."
+                                             "خطأ في تحميل البيانات: ${e.message}\nيرجى حذف ملف قاعدة البيانات لإعادة الإنشاء."
                             )
                         }
                         e.printStackTrace()
@@ -374,6 +385,19 @@ class SettingsViewModel(
 
     fun clearMessage() {
         _uiState.update { it.copy(message = null) }
+    }
+
+    // ===== Update Management =====
+    fun checkForUpdates(manual: Boolean = true) {
+        appUpdater.checkForUpdates(manual)
+    }
+
+    fun downloadAndInstallUpdate() {
+        appUpdater.downloadAndInstallUpdate()
+    }
+
+    fun clearUpdateState() {
+        appUpdater.clearState()
     }
 
     // ===== Monthly Report =====

@@ -10,6 +10,8 @@ import org.associations.project.billing.ShareService
 import org.associations.project.database.DatabaseDriverFactory
 import org.associations.project.security.AndroidDeviceFingerprint
 import org.associations.project.security.DeviceFingerprint
+import org.associations.project.utils.AppUpdater
+import org.associations.project.utils.AndroidAppUpdater
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -28,4 +30,5 @@ actual val platformModule: Module = module {
                 context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
         )
     }
+    single<AppUpdater> { AndroidAppUpdater() }
 }

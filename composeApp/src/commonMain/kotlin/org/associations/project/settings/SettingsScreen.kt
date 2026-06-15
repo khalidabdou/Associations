@@ -19,6 +19,7 @@ import org.associations.project.database.PricingTier
 import org.associations.project.database.Zone
 import org.associations.project.ui.Strings
 import org.associations.project.utils.MonthYear
+import org.associations.project.utils.UpdateState
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -430,6 +431,61 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                         }
                     }
 
+                     // App Update Section
+                     item {
+                         SettingsSection(
+                             title = "تحديث التطبيق",
+                             icon = Icons.Default.SystemUpdate
+                         ) {
+                             Column(
+                                 modifier = Modifier.padding(16.dp),
+                                 verticalArrangement = Arrangement.spacedBy(12.dp)
+                             ) {
+                                 Row(
+                                     modifier = Modifier.fillMaxWidth(),
+                                     horizontalArrangement = Arrangement.SpaceBetween,
+                                     verticalAlignment = Alignment.CenterVertically
+                                 ) {
+                                     Column {
+                                         Text(
+                                             text = "الإصدار الحالي",
+                                             style = MaterialTheme.typography.bodyMedium,
+                                             fontWeight = FontWeight.Bold
+                                         )
+                                         Text(
+                                             text = uiState.appVersion,
+                                             style = MaterialTheme.typography.bodySmall,
+                                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                                         )
+                                     }
+                                     
+                                     Button(
+                                         onClick = { viewModel.checkForUpdates(manual = true) },
+                                         enabled = uiState.updateState !is UpdateState.Checking && uiState.updateState !is UpdateState.Downloading
+                                     ) {
+                                         if (uiState.updateState is UpdateState.Checking) {
+                                             CircularProgressIndicator(
+                                                 modifier = Modifier.size(16.dp),
+                                                 strokeWidth = 2.dp,
+                                                 color = MaterialTheme.colorScheme.onPrimary
+                                             )
+                                             Spacer(modifier = Modifier.width(8.dp))
+                                             Text("جار التحقق...")
+                                         } else {
+                                             Icon(
+                                                 imageVector = Icons.Default.Refresh,
+                                                 contentDescription = null,
+                                                 modifier = Modifier.size(18.dp)
+                                             )
+                                             Spacer(modifier = Modifier.width(6.dp))
+                                             Text("التحقق من التحديثات")
+                                         }
+                                     }
+                                 }
+                             }
+                         }
+                     }
+
                     // Monthly Report Section
                     item {
                         val reportExportLauncher = org.associations.project.utils.rememberReportExportLauncher(
@@ -706,6 +762,104 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                 )
             }
         }
+    }
+
+    // Update Dialogs
+    val updateState = uiState.updateState
+    when (updateState) {
+        is UpdateState.UpdateAvailable -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearUpdateState() },
+                icon = { Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                title = { Text("تحديث جديد متوفر") },
+                text = {
+                    Column {
+                        Text(
+                            text = "إصدار جديد متوفر: ${updateState.latestVersion}",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "سجل التغييرات:")
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Card(
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 150.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        ) {
+                            LazyColumn(modifier = Modifier.padding(8.dp)) {
+                                item {
+                                    Text(
+                                        text = updateState.changelog,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.downloadAndInstallUpdate() }
+                    ) {
+                        Text("تنزيل وتثبيت")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.clearUpdateState() }) {
+                        Text("لاحقاً")
+                    }
+                }
+            )
+        }
+        is UpdateState.Downloading -> {
+            AlertDialog(
+                onDismissRequest = {}, 
+                title = { Text("جاري تنزيل التحديث") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        LinearProgressIndicator(
+                            progress = updateState.progress,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+                        )
+                        Text(
+                            text = "تم تنزيل ${(updateState.progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                confirmButton = {}
+            )
+        }
+        is UpdateState.UpToDate -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearUpdateState() },
+                title = { Text("تحديث التطبيق") },
+                text = { Text("التطبيق محدث إلى آخر إصدار!") },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.clearUpdateState() }) {
+                        Text("موافق")
+                    }
+                }
+            )
+        }
+        is UpdateState.Error -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearUpdateState() },
+                icon = { Icon(Icons.Default.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+                title = { Text("خطأ في التحديث") },
+                text = { Text(updateState.message) },
+                confirmButton = {
+                    TextButton(onClick = { viewModel.clearUpdateState() }) {
+                        Text("موافق")
+                    }
+                }
+            )
+        }
+        else -> {}
     }
 
     // Connection Type Picker Dialog (generic — shows either Bluetooth or USB list)

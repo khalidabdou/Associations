@@ -8,6 +8,8 @@ import org.associations.project.billing.ShareService
 import org.associations.project.database.DatabaseDriverFactory
 import org.associations.project.security.DesktopDeviceFingerprint
 import org.associations.project.security.DeviceFingerprint
+import org.associations.project.utils.AppUpdater
+import org.associations.project.utils.JVMAppUpdater
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
@@ -25,4 +27,5 @@ actual val platformModule: Module = module {
                 java.util.prefs.Preferences.userRoot().node("org.associations.project")
         )
     }
+    single<AppUpdater> { JVMAppUpdater() }
 }
