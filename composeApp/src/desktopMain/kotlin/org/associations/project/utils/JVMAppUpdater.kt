@@ -93,8 +93,9 @@ class JVMAppUpdater : AppUpdater {
                         currentState.downloadUrl.lowercase().contains(".dmg") -> "dmg"
                         else -> "exe"
                     }
+                    // Do NOT call deleteOnExit() — System.exit(0) would delete the file
+                    // before msiexec / the bash script can use it. Installers clean up themselves.
                     val tempFile = File.createTempFile("Associations-Update-", ".$extension")
-                    tempFile.deleteOnExit()
 
                     connection.inputStream.use { input ->
                         FileOutputStream(tempFile).use { output ->
@@ -148,55 +149,41 @@ class JVMAppUpdater : AppUpdater {
      * mounts the DMG, copies the .app to /Applications, unmounts, and re-launches.
      */
     private fun installMacOS(dmgFile: File) {
-        // Find current app bundle path (e.g. /Applications/Associations.app)
         val appPath = findCurrentAppPath()
+        val dmgPath = dmgFile.absolutePath
 
         val scriptFile = File.createTempFile("associations_updater_", ".sh")
         scriptFile.setExecutable(true)
 
-        scriptFile.writeText(
-            """
-            #!/bin/bash
-            # Wait for the running app to exit
-            sleep 2
+        // Build script with string concatenation — triple-quoted + trimIndent adds leading spaces
+        // that break bash. Also $$ must be written as literal characters for bash PID.
+        val nl = "\n"
+        val script = "#!/bin/bash$nl" +
+            "sleep 3$nl" +
+            "DMG=\"$dmgPath\"$nl" +
+            "MOUNT_POINT=\"/Volumes/AssociationsUpdate_\$\$\"$nl" +
+            "hdiutil attach \"\$DMG\" -mountpoint \"\$MOUNT_POINT\" -nobrowse -quiet$nl" +
+            "if [ \$? -ne 0 ]; then$nl" +
+            "  osascript -e 'display dialog \"فشل تثبيت التحديث: خطأ في تحميل DMG.\" buttons {\"حسناً\"} default button 1'$nl" +
+            "  exit 1$nl" +
+            "fi$nl" +
+            "APP_IN_DMG=\$(find \"\$MOUNT_POINT\" -maxdepth 1 -name \"*.app\" | head -1)$nl" +
+            "if [ -z \"\$APP_IN_DMG\" ]; then$nl" +
+            "  hdiutil detach \"\$MOUNT_POINT\" -quiet$nl" +
+            "  osascript -e 'display dialog \"فشل تثبيت التحديث: لم يتم العثور على التطبيق داخل DMG.\" buttons {\"حسناً\"} default button 1'$nl" +
+            "  exit 1$nl" +
+            "fi$nl" +
+            "INSTALL_DIR=\"$appPath\"$nl" +
+            "rm -rf \"\$INSTALL_DIR\"$nl" +
+            "cp -R \"\$APP_IN_DMG\" \"\$INSTALL_DIR\"$nl" +
+            "hdiutil detach \"\$MOUNT_POINT\" -quiet$nl" +
+            "rm -f \"\$DMG\"$nl" +
+            "rm -f \"\$0\"$nl" +   // self-delete script
+            "open \"\$INSTALL_DIR\"$nl"
 
-            DMG="${dmgFile.absolutePath}"
-            MOUNT_POINT="/Volumes/AssociationsUpdate_$$"
+        scriptFile.writeText(script)
 
-            # Mount the DMG silently
-            hdiutil attach "${'$'}DMG" -mountpoint "${'$'}MOUNT_POINT" -nobrowse -quiet
-            if [ ${'$'}? -ne 0 ]; then
-                osascript -e 'display dialog "فشل تثبيت التحديث: لم يتم تحميل ملف DMG." buttons {"حسناً"} default button 1'
-                exit 1
-            fi
-
-            # Find the .app inside the mounted DMG
-            APP_IN_DMG=${'$'}(find "${'$'}MOUNT_POINT" -maxdepth 1 -name "*.app" | head -1)
-            if [ -z "${'$'}APP_IN_DMG" ]; then
-                hdiutil detach "${'$'}MOUNT_POINT" -quiet
-                osascript -e 'display dialog "فشل تثبيت التحديث: لم يتم العثور على ملف التطبيق." buttons {"حسناً"} default button 1'
-                exit 1
-            fi
-
-            APP_NAME=${'$'}(basename "${'$'}APP_IN_DMG")
-            INSTALL_DIR="${appPath}"
-
-            # Remove old app and copy new one
-            rm -rf "${'$'}INSTALL_DIR"
-            cp -R "${'$'}APP_IN_DMG" "${'$'}INSTALL_DIR"
-
-            # Unmount the DMG
-            hdiutil detach "${'$'}MOUNT_POINT" -quiet
-
-            # Remove the downloaded DMG
-            rm -f "${'$'}DMG"
-
-            # Launch the updated app
-            open "${'$'}INSTALL_DIR"
-            """.trimIndent()
-        )
-
-        // Run the script in the background and exit this process
+        // Launch script fully detached, then exit this process
         ProcessBuilder("bash", scriptFile.absolutePath)
             .redirectOutput(ProcessBuilder.Redirect.DISCARD)
             .redirectError(ProcessBuilder.Redirect.DISCARD)
@@ -206,13 +193,21 @@ class JVMAppUpdater : AppUpdater {
     }
 
     /**
-     * Windows: runs the MSI installer silently (/passive shows progress bar, /norestart avoids reboot).
+     * Windows: writes a .bat launcher that waits 2s (for JVM to exit) then runs msiexec silently.
+     * This avoids the race where the JVM is still running when msiexec tries to replace locked files.
      */
     private fun installWindows(msiFile: File) {
-        ProcessBuilder(
-            "msiexec.exe", "/i", msiFile.absolutePath,
-            "/passive", "/norestart"
-        ).start()
+        val msiPath = msiFile.absolutePath
+        val batFile = File.createTempFile("assoc_updater_", ".bat")
+        // \r\n required for Windows batch files
+        batFile.writeText(
+            "@echo off\r\n" +
+            "timeout /t 2 /nobreak >nul\r\n" +
+            "msiexec.exe /i \"$msiPath\" /passive /norestart\r\n" +
+            "del /f /q \"%~f0\"\r\n"  // self-delete the bat after install
+        )
+        // Launch batch minimized so no console window appears
+        ProcessBuilder("cmd.exe", "/c", "start", "", "/min", batFile.absolutePath).start()
         System.exit(0)
     }
 
