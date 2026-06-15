@@ -2,7 +2,7 @@ package org.associations.project.utils
 
 import kotlinx.coroutines.flow.StateFlow
 
-const val APP_VERSION = "1.0.1"
+const val APP_VERSION = "1.0.2"
 
 interface AppUpdater {
     val state: StateFlow<UpdateState>

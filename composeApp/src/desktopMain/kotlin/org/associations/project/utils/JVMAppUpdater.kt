@@ -129,24 +129,106 @@ class JVMAppUpdater : AppUpdater {
     private fun installAndExit(file: File) {
         try {
             val osName = System.getProperty("os.name").lowercase()
-            val process = when {
-                osName.contains("win") -> {
-                    ProcessBuilder("cmd.exe", "/c", "start", "", file.absolutePath).start()
-                }
-                osName.contains("mac") -> {
-                    ProcessBuilder("open", file.absolutePath).start()
-                }
+            when {
+                osName.contains("mac") -> installMacOS(file)
+                osName.contains("win") -> installWindows(file)
                 else -> {
                     ProcessBuilder("xdg-open", file.absolutePath).start()
+                    System.exit(0)
                 }
-            }
-            if (process != null) {
-                System.exit(0)
             }
         } catch (e: Exception) {
             e.printStackTrace()
             _state.value = UpdateState.Error("فشل بدء برنامج التثبيت: ${e.localizedMessage}")
         }
+    }
+
+    /**
+     * macOS: writes a background shell script that waits for this process to exit,
+     * mounts the DMG, copies the .app to /Applications, unmounts, and re-launches.
+     */
+    private fun installMacOS(dmgFile: File) {
+        // Find current app bundle path (e.g. /Applications/Associations.app)
+        val appPath = findCurrentAppPath()
+
+        val scriptFile = File.createTempFile("associations_updater_", ".sh")
+        scriptFile.setExecutable(true)
+
+        scriptFile.writeText(
+            """
+            #!/bin/bash
+            # Wait for the running app to exit
+            sleep 2
+
+            DMG="${dmgFile.absolutePath}"
+            MOUNT_POINT="/Volumes/AssociationsUpdate_$$"
+
+            # Mount the DMG silently
+            hdiutil attach "${'$'}DMG" -mountpoint "${'$'}MOUNT_POINT" -nobrowse -quiet
+            if [ ${'$'}? -ne 0 ]; then
+                osascript -e 'display dialog "فشل تثبيت التحديث: لم يتم تحميل ملف DMG." buttons {"حسناً"} default button 1'
+                exit 1
+            fi
+
+            # Find the .app inside the mounted DMG
+            APP_IN_DMG=${'$'}(find "${'$'}MOUNT_POINT" -maxdepth 1 -name "*.app" | head -1)
+            if [ -z "${'$'}APP_IN_DMG" ]; then
+                hdiutil detach "${'$'}MOUNT_POINT" -quiet
+                osascript -e 'display dialog "فشل تثبيت التحديث: لم يتم العثور على ملف التطبيق." buttons {"حسناً"} default button 1'
+                exit 1
+            fi
+
+            APP_NAME=${'$'}(basename "${'$'}APP_IN_DMG")
+            INSTALL_DIR="${appPath}"
+
+            # Remove old app and copy new one
+            rm -rf "${'$'}INSTALL_DIR"
+            cp -R "${'$'}APP_IN_DMG" "${'$'}INSTALL_DIR"
+
+            # Unmount the DMG
+            hdiutil detach "${'$'}MOUNT_POINT" -quiet
+
+            # Remove the downloaded DMG
+            rm -f "${'$'}DMG"
+
+            # Launch the updated app
+            open "${'$'}INSTALL_DIR"
+            """.trimIndent()
+        )
+
+        // Run the script in the background and exit this process
+        ProcessBuilder("bash", scriptFile.absolutePath)
+            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+
+        System.exit(0)
+    }
+
+    /**
+     * Windows: runs the MSI installer silently (/passive shows progress bar, /norestart avoids reboot).
+     */
+    private fun installWindows(msiFile: File) {
+        ProcessBuilder(
+            "msiexec.exe", "/i", msiFile.absolutePath,
+            "/passive", "/norestart"
+        ).start()
+        System.exit(0)
+    }
+
+    /**
+     * Finds the current running .app path on macOS.
+     * Falls back to /Applications/Associations.app if not determinable.
+     */
+    private fun findCurrentAppPath(): String {
+        // Try to find via the java.home path (inside the .app bundle)
+        val javaHome = System.getProperty("java.home") ?: ""
+        if (javaHome.contains(".app")) {
+            val appEnd = javaHome.indexOf(".app") + 4
+            return javaHome.substring(0, appEnd)
+        }
+        // Fallback: standard Applications directory
+        return "/Applications/Associations.app"
     }
 
     override fun clearState() {
