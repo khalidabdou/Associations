@@ -16,7 +16,8 @@ import java.net.URL
 @Serializable
 private data class UpdateMetadata(
     val latestVersion: String,
-    val downloadUrl: String,
+    val windowsDownloadUrl: String,
+    val macDownloadUrl: String,
     val changelog: String
 )
 
@@ -43,10 +44,16 @@ class JVMAppUpdater : AppUpdater {
                     val metadata = Json.decodeFromString<UpdateMetadata>(jsonText)
                     
                     if (isNewerVersion(APP_VERSION, metadata.latestVersion)) {
+                        val osName = System.getProperty("os.name").lowercase()
+                        val downloadUrl = if (osName.contains("win")) {
+                            metadata.windowsDownloadUrl
+                        } else {
+                            metadata.macDownloadUrl
+                        }
                         _state.value = UpdateState.UpdateAvailable(
                             latestVersion = metadata.latestVersion,
                             changelog = metadata.changelog,
-                            downloadUrl = metadata.downloadUrl
+                            downloadUrl = downloadUrl
                         )
                     } else {
                         _state.value = UpdateState.UpToDate
@@ -81,7 +88,11 @@ class JVMAppUpdater : AppUpdater {
                 if (connection.responseCode == 200) {
                     val contentLength = connection.contentLengthLong
                     
-                    val extension = if (currentState.downloadUrl.lowercase().contains(".msi")) "msi" else "exe"
+                    val extension = when {
+                        currentState.downloadUrl.lowercase().contains(".msi") -> "msi"
+                        currentState.downloadUrl.lowercase().contains(".dmg") -> "dmg"
+                        else -> "exe"
+                    }
                     val tempFile = File.createTempFile("Associations-Update-", ".$extension")
                     tempFile.deleteOnExit()
 
