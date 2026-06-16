@@ -26,8 +26,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Build MSI Installer
-        run: ./gradlew :composeApp:packageMsi
+        run: ./gradlew :composeApp:packageMsi -PappVersion=${{ steps.version.outputs.version }}
 
       - name: Find MSI file name
         id: find_msi
@@ -71,8 +75,12 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
       - name: Build DMG Installer
-        run: ./gradlew :composeApp:packageDmg
+        run: ./gradlew :composeApp:packageDmg -PappVersion=${{ steps.version.outputs.version }}
 
       - name: Find DMG file name
         id: find_dmg

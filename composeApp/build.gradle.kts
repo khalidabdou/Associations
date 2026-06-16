@@ -87,6 +87,10 @@ android {
 
 dependencies { debugImplementation(compose.uiTooling) }
 
+val appVersion: String = providers.gradleProperty("appVersion")
+    .orElse("1.0.0")
+    .get()
+
 compose.desktop {
     application {
         mainClass = "org.associations.project.MainKt"
@@ -94,7 +98,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "Associations"
-            packageVersion = "1.0.8"
+            packageVersion = appVersion
             description = "Water Association Management System"
             vendor = "Associations Project"
             
