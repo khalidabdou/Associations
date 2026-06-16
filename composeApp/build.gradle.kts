@@ -90,6 +90,7 @@ dependencies { debugImplementation(compose.uiTooling) }
 val appVersion: String = providers.gradleProperty("appVersion")
     .orElse("1.0.0")
     .get()
+    .ifEmpty { "1.0.0" }
 
 compose.desktop {
     application {
