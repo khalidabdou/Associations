@@ -92,7 +92,11 @@ object AndroidMonthlyReportRenderer {
             try {
                 val file = java.io.File(s.logoPath)
                 if (file.exists()) {
-                    appendLine("<div style='text-align:center;margin-bottom:4px'><img src='file://${file.absolutePath}' style='width:64px;height:64px'/></div>")
+                    val bytes = java.io.FileInputStream(file).use { it.readBytes() }
+                    val b64 = java.util.Base64.getEncoder().encodeToString(bytes)
+                    val ext = file.extension.lowercase()
+                    val mime = if (ext == "png") "image/png" else if (ext == "jpg" || ext == "jpeg") "image/jpeg" else "image/png"
+                    appendLine("<div style='text-align:center;margin-bottom:4px'><img src='data:$mime;base64,$b64' style='width:64px;height:64px'/></div>")
                 }
             } catch (_: Exception) {}
         }
