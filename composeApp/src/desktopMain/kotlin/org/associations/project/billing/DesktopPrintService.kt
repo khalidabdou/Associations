@@ -267,23 +267,23 @@ class DesktopPrintService : PrintService {
                 y += 30
             }
 
-            // Table header
+            // Table header (RTL order: consumption | current | previous)
             g2d.font = getArabicFont(Font.BOLD, tableHeaderSize)
             val col1 = marginX
             val col2 = marginX + contentWidth / 3
             val col3 = marginX + contentWidth * 2 / 3
-            drawArabic(g2d, "الحالية", col1, y)
-            drawArabic(g2d, "السابقة", col2, y)
-            drawArabic(g2d, "الاستهلاك", col3, y)
+            drawArabic(g2d, "الاستهلاك", col1, y)
+            drawArabic(g2d, "الحالية", col2, y)
+            drawArabic(g2d, "السابقة", col3, y)
             y += 5
             g2d.drawLine(marginX, y, width - marginX, y)
             y += if (isReceipt) 12 else 18
 
             // Table row
             g2d.font = getArabicFont(Font.PLAIN, bodySize)
-            drawArabic(g2d, "${invoice.currentReading}", col1, y)
-            drawArabic(g2d, "${invoice.previousReading}", col2, y)
-            drawArabic(g2d, "${invoice.consumption} م³", col3, y)
+            drawArabic(g2d, "${invoice.consumption} م³", col1, y)
+            drawArabic(g2d, "${invoice.currentReading}", col2, y)
+            drawArabic(g2d, "${invoice.previousReading}", col3, y)
             y += if (isReceipt) 15 else 25
             g2d.drawLine(marginX, y, width - marginX, y)
             y += if (isReceipt) 10 else 15
