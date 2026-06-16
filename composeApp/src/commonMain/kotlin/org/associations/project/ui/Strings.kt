@@ -94,6 +94,7 @@ object Strings {
     const val dueDate = "تاريخ الاستحقاق"
     const val pricingTiers = "شرائح التسعير"
     const val noInvoices = "لا توجد فواتير"
+    const val searchInvoices = "البحث في الفواتير..."
     
     // Treasury
     const val treasury = "الخزينة"

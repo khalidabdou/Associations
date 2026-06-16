@@ -42,6 +42,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    var searchQuery by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf<Long?>(null) }
     var showPrintDialog by remember { mutableStateOf<InvoiceUiModel?>(null) }
     var showMarkPaidDialog by remember { mutableStateOf<Long?>(null) }
@@ -132,6 +133,35 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                     }
                 }
 
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(Strings.searchInvoices, style = MaterialTheme.typography.bodySmall) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = Strings.search,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = Strings.clearSelection,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    textStyle = MaterialTheme.typography.bodySmall,
+                    colors = OutlinedTextFieldDefaults.colors()
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Compact Tabs
@@ -162,13 +192,22 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                         CircularProgressIndicator()
                     }
                 } else {
-                    val invoices = when (uiState.selectedTab) {
-                        0 -> uiState.unpaidInvoices
-                        1 -> uiState.paidInvoices
-                        else -> uiState.allInvoices
+                    val filteredInvoices by remember(uiState, searchQuery) {
+                        derivedStateOf {
+                            val source = when (uiState.selectedTab) {
+                                0 -> uiState.unpaidInvoices
+                                1 -> uiState.paidInvoices
+                                else -> uiState.allInvoices
+                            }
+                            if (searchQuery.isBlank()) source
+                            else source.filter { inv ->
+                                inv.subscriberName?.contains(searchQuery, ignoreCase = true) == true ||
+                                inv.meterNumber?.contains(searchQuery, ignoreCase = true) == true
+                            }
+                        }
                     }
 
-                    if (invoices.isEmpty()) {
+                    if (filteredInvoices.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Text(
                                 text = Strings.noInvoices,
@@ -180,7 +219,7 @@ fun InvoicesListScreen(onNavigateBack: () -> Unit) {
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(invoices, key = { it.id }) { invoice ->
+                            items(filteredInvoices, key = { it.id }) { invoice ->
                                 CompactInvoiceItem(
                                     invoice = invoice,
                                     inSelectionMode = inSelectionMode,
