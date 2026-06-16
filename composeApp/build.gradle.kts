@@ -87,7 +87,7 @@ android {
 
 dependencies { debugImplementation(compose.uiTooling) }
 
-val appVersion: String = providers.gradleProperty("appVersion")
+val appVersion: String = providers.environmentVariable("APP_VERSION")
     .orElse("1.0.0")
     .get()
     .ifEmpty { "1.0.0" }
