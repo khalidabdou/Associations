@@ -189,14 +189,18 @@ class DesktopPrintService : PrintService {
             val tableHeaderSize = if (isReceipt) 10 else 12
             val totalSize = if (isReceipt) 14 else 16
 
-            // Logo (A4/A5 only — receipt uses plain header for speed)
-            if (!isReceipt && !settings.logoPath.isNullOrBlank()) {
+            // Logo (all formats)
+            if (!settings.logoPath.isNullOrBlank()) {
                 try {
                     val logoFile = File(settings.logoPath)
                     if (logoFile.exists()) {
                         val logo: BufferedImage? = ImageIO.read(logoFile)
                         if (logo != null) {
-                            val logoSize = if (isA5) 50 else 65
+                            val logoSize = when {
+                                isReceipt -> 40
+                                isA5 -> 50
+                                else -> 65
+                            }
                             val logoLeft = (width - logoSize) / 2
                             g2d.drawImage(logo, logoLeft, y, logoSize, logoSize, null)
                             y += logoSize + 12
