@@ -88,9 +88,47 @@ android {
 dependencies { debugImplementation(compose.uiTooling) }
 
 val appVersion: String = providers.environmentVariable("APP_VERSION")
-    .orElse("1.0.0")
+    .orElse("1.0.11")
     .get()
-    .ifEmpty { "1.0.0" }
+    .ifEmpty { "1.0.11" }
+
+// Generate a compile-time version constant from the environment variable (set by CI)
+// so the runtime APP_VERSION stays in sync with the release tag.
+// The directory and task are configured lazily to be configuration-cache compatible.
+val generatedVersionDir = project.layout.buildDirectory.dir("generated/version")
+val generateVersionConfig = tasks.register("generateVersionConfig") {
+    val version = appVersion // capture the string, not a script object
+    // This task references project.layout which Gradle cannot serialize for the
+    // configuration cache. It runs in under a millisecond, so skipping caching is fine.
+    notCompatibleWithConfigurationCache("references project.layout at configuration time")
+    outputs.dir(generatedVersionDir)
+    doLast {
+        val outDir = generatedVersionDir.get().asFile
+        outDir.mkdirs()
+        outDir.resolve("BuildConfig.kt").writeText("""
+package org.associations.project.utils
+
+/**
+ * Auto-generated at build time. See build.gradle.kts generateVersionConfig task.
+ * Override via APP_VERSION environment variable (set by CI release workflow).
+ */
+object BuildConfig {
+    const val APP_VERSION: String = "$version"
+}
+""".trimIndent() + "\n")
+    }
+}
+
+// Wire the generated source directory into the commonMain source sets so it is
+// available to every target.
+kotlin.sourceSets.named("commonMain") {
+    kotlin.srcDir(generatedVersionDir)
+}
+
+// Ensure BuildConfig.kt is generated before any Kotlin compilation task runs.
+tasks.matching { it.name.startsWith("compileKotlin") }.configureEach {
+    dependsOn(generateVersionConfig)
+}
 
 compose.desktop {
     application {

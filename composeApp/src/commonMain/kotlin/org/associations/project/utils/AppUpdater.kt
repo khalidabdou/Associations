@@ -2,12 +2,27 @@ package org.associations.project.utils
 
 import kotlinx.coroutines.flow.StateFlow
 
-const val APP_VERSION = "1.0.2"
+/**
+ * The current application version.
+ *
+ * At CI build time, BuildConfig.APP_VERSION is generated from the APP_VERSION
+ * environment variable (set by the release workflow from the git tag).
+ * The hardcoded fallback here is used for local development builds.
+ */
+val APP_VERSION: String by lazy {
+    try {
+        BuildConfig.APP_VERSION
+    } catch (_: NoClassDefFoundError) {
+        "1.0.11"
+    }
+}
 
 interface AppUpdater {
     val state: StateFlow<UpdateState>
     fun checkForUpdates(manual: Boolean = false)
     fun downloadAndInstallUpdate()
+    /** Launch the downloaded installer (after ReadyToInstall state is reached). */
+    fun triggerInstall()
     fun clearState()
 }
 

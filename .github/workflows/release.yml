@@ -150,5 +150,11 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add version.json
-          git commit -m "chore: update version.json to ${{ steps.version.outputs.version }} [skip ci]"
-          git push origin HEAD:main
+          git commit -m "chore: update version.json to ${{ steps.version.outputs.version }} [skip ci]" || echo "Nothing to commit"
+          # Pull with rebase to handle concurrent commits (e.g. manual version bumps)
+          git pull origin main --rebase --autostash || true
+          git push origin HEAD:main || {
+            echo "Regular push failed (conflict). Trying force-with-lease for version.json only..."
+            # version.json is a CI-controlled manifest; force-with-lease is safe here
+            git push origin HEAD:main --force-with-lease
+          }

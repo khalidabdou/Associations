@@ -396,6 +396,10 @@ class SettingsViewModel(
         appUpdater.downloadAndInstallUpdate()
     }
 
+    fun triggerInstall() {
+        appUpdater.triggerInstall()
+    }
+
     fun clearUpdateState() {
         appUpdater.clearState()
     }

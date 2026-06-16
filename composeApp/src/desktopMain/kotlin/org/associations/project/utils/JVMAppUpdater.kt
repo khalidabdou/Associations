@@ -28,6 +28,9 @@ class JVMAppUpdater : AppUpdater {
     private val scope = CoroutineScope(Dispatchers.Default)
     private val updateConfigUrl = "https://raw.githubusercontent.com/khalidabdou/Associations/main/version.json"
 
+    /** The downloaded installer file, set during download and consumed by triggerInstall(). */
+    private var pendingInstallerFile: File? = null
+
     override fun checkForUpdates(manual: Boolean) {
         _state.value = UpdateState.Checking
         scope.launch(Dispatchers.IO) {
@@ -114,9 +117,8 @@ class JVMAppUpdater : AppUpdater {
                         }
                     }
 
+                    pendingInstallerFile = tempFile
                     _state.value = UpdateState.ReadyToInstall(tempFile.absolutePath)
-                    
-                    installAndExit(tempFile)
                 } else {
                     _state.value = UpdateState.Error("فشل تنزيل ملف التحديث: رمز الاستجابة ${connection.responseCode}")
                 }
@@ -193,18 +195,50 @@ class JVMAppUpdater : AppUpdater {
     }
 
     /**
-     * Windows: writes a .bat launcher that waits 2s (for JVM to exit) then runs msiexec silently.
-     * This avoids the race where the JVM is still running when msiexec tries to replace locked files.
+     * Windows: copies the downloaded MSI to a persistent path (AppData\Local\Associations\Updates)
+     * so it survives temp-dir cleanup and antivirus scans, then writes a batch launcher that
+     * waits for the JVM to exit and runs msiexec silently. If the copy fails, falls back to
+     * running from the temp path with a longer delay.
      */
     private fun installWindows(msiFile: File) {
         val msiPath = msiFile.absolutePath
+
+        // Try to relocate the MSI out of temp so it survives cleanup / AV scans
+        val localAppData = System.getenv("LOCALAPPDATA") ?: System.getProperty("user.home") + "\\AppData\\Local"
+        val updatesDir = File(localAppData, "Associations\\Updates")
+        updatesDir.mkdirs()
+
+        val persistedFile = File(updatesDir, "Associations-${APP_VERSION}.msi")
+        val installPath: String = try {
+            // Copy (not move) so the temp file still exists for verification
+            msiFile.copyTo(persistedFile, overwrite = true)
+            persistedFile.absolutePath
+        } catch (e: Exception) {
+            // Copy failed (permission, disk space, etc.) — use temp location with longer delay
+            msiPath
+        }
+
+        val logFile = File(updatesDir, "install_log.txt")
+
         val batFile = File.createTempFile("assoc_updater_", ".bat")
         // \r\n required for Windows batch files
         batFile.writeText(
             "@echo off\r\n" +
-            "timeout /t 2 /nobreak >nul\r\n" +
-            "msiexec.exe /i \"$msiPath\" /passive /norestart\r\n" +
-            "del /f /q \"%~f0\"\r\n"  // self-delete the bat after install
+            "set MSI=\"$installPath\"\r\n" +
+            "set LOG=\"${logFile.absolutePath}\"\r\n" +
+            "echo [%date% %time%] Starting install of %MSI% >> %LOG%\r\n" +
+            "if not exist %MSI% (\r\n" +
+            "    echo [%date% %time%] ERROR: MSI file not found: %MSI% >> %LOG%\r\n" +
+            "    msg \"%username%\" \"تعذر العثور على ملف التحديث: %MSI%. حاول تنزيل التحديث مرة أخرى.\"\r\n" +
+            "    del /f /q \"%~f0\"\r\n" +
+            "    exit /b 1\r\n" +
+            ")\r\n" +
+            "timeout /t 5 /nobreak >nul\r\n" +
+            "echo [%date% %time%] Launching msiexec... >> %LOG%\r\n" +
+            "msiexec.exe /i %MSI% /passive /norestart >> %LOG% 2>&1\r\n" +
+            "set EXIT_CODE=%ERRORLEVEL%\r\n" +
+            "echo [%date% %time%] msiexec exit code: %EXIT_CODE% >> %LOG%\r\n" +
+            "del /f /q \"%~f0\"\r\n"   // self-delete the bat after install
         )
         // Launch batch minimized so no console window appears
         ProcessBuilder("cmd.exe", "/c", "start", "", "/min", batFile.absolutePath).start()
@@ -226,7 +260,17 @@ class JVMAppUpdater : AppUpdater {
         return "/Applications/Associations.app"
     }
 
+    override fun triggerInstall() {
+        val file = pendingInstallerFile
+        if (file == null || !file.exists()) {
+            _state.value = UpdateState.Error("لم يتم العثور على ملف التحديث المحمل. يرجى التحقق من التحديثات مرة أخرى.")
+            return
+        }
+        installAndExit(file)
+    }
+
     override fun clearState() {
+        pendingInstallerFile = null
         _state.value = UpdateState.Idle
     }
 

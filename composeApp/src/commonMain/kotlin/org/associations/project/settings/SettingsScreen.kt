@@ -859,6 +859,26 @@ fun SettingsScreen(onNavigateBack: () -> Unit, onNavigateToActivation: (() -> Un
                 }
             )
         }
+        is UpdateState.ReadyToInstall -> {
+            AlertDialog(
+                onDismissRequest = { viewModel.clearUpdateState() },
+                icon = { Icon(Icons.Default.InstallDesktop, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                title = { Text("التحديث جاهز للتثبيت") },
+                text = { Text("تم تنزيل التحديث. سيتم إغلاق التطبيق لتثبيت الإصدار الجديد.") },
+                confirmButton = {
+                    Button(
+                        onClick = { viewModel.triggerInstall() }
+                    ) {
+                        Text("تثبيت الآن")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { viewModel.clearUpdateState() }) {
+                        Text("لاحقاً")
+                    }
+                }
+            )
+        }
         else -> {}
     }
 

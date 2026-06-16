@@ -18,6 +18,10 @@ class AndroidAppUpdater : AppUpdater {
         // No-op on Android, updates managed by Google Play Store
     }
 
+    override fun triggerInstall() {
+        // No-op on Android
+    }
+
     override fun clearState() {
         _state.value = UpdateState.Idle
     }
