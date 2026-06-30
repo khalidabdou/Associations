@@ -52,7 +52,7 @@ fun SubscriberListScreen(onNavigateToDetail: (Long) -> Unit, onNavigateToEntry: 
                     val matchesZone =
                             selectedZoneFilter == null || subscriber.zoneId == selectedZoneFilter
                     matchesSearch && matchesZone
-                }
+                }.sortedWith(compareBy(naturalOrder<String>()) { it.meterNumber })
             }
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {

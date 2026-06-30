@@ -69,7 +69,7 @@ data class MeterReadingUiState(
 
     val filteredReadings: List<MeterReadingEntry>
         get() {
-            val allReadings = readings.values.toList()
+            val allReadings = readings.values.sortedWith(compareBy(naturalOrder<String>()) { it.meterNumber })
             return if (searchQuery.isBlank()) {
                 allReadings
             } else {

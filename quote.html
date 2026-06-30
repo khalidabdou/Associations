@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>عرض سعر – تطبيق إدارة جمعية الماء</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+            padding: 40px 20px;
+            line-height: 1.7;
+        }
+        .page {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 48px;
+        }
+        header {
+            text-align: center;
+            border-bottom: 3px solid #1abc9c;
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+        header h1 {
+            font-size: 1.9rem;
+            color: #1a5276;
+            margin-bottom: 8px;
+        }
+        header .sub {
+            color: #7f8c8d;
+            font-size: 0.95rem;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 24px;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+        .info-grid div {
+            background: #f8f9fa;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border-right: 4px solid #1abc9c;
+        }
+        .info-grid span.label {
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            display: block;
+            margin-bottom: 2px;
+        }
+        h2 {
+            color: #1a5276;
+            font-size: 1.25rem;
+            margin: 28px 0 14px;
+            padding-right: 12px;
+            border-right: 4px solid #1abc9c;
+        }
+        .features {
+            list-style: none;
+            padding: 0;
+        }
+        .features li {
+            padding: 8px 0;
+            padding-right: 28px;
+            position: relative;
+        }
+        .features li::before {
+            content: "✓";
+            position: absolute;
+            right: 0;
+            color: #1abc9c;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0 24px;
+            font-size: 0.95rem;
+        }
+        th, td {
+            padding: 14px 16px;
+            text-align: right;
+            border-bottom: 1px solid #e1e8ed;
+        }
+        th {
+            background: #1a5276;
+            color: #fff;
+            font-weight: 600;
+        }
+        tr:nth-child(even) { background: #f8f9fa; }
+        td.price {
+            font-weight: bold;
+            color: #1a5276;
+            text-align: left;
+        }
+        .total-box {
+            background: #1a5276;
+            color: #fff;
+            padding: 18px 24px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 24px 0;
+        }
+        .total-box .amount {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .notes {
+            background: #f8f9fa;
+            padding: 18px 20px;
+            border-radius: 10px;
+            margin: 24px 0;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .notes ul {
+            padding-right: 20px;
+            margin-top: 8px;
+        }
+        .notes li {
+            margin-bottom: 6px;
+        }
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 48px;
+            padding-top: 24px;
+            border-top: 2px dashed #ddd;
+        }
+        .signatures div {
+            text-align: center;
+        }
+        .signatures .line {
+            border-bottom: 1px solid #999;
+            height: 40px;
+            margin-bottom: 8px;
+        }
+        .signatures label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+        @media print {
+            body {
+                background: #fff;
+                padding: 0;
+            }
+            .page {
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header>
+            <h1>عرض سعر</h1>
+            <div class="sub">تطبيق إدارة جمعية الماء – Water Association Manager</div>
+        </header>
+
+        <div class="info-grid">
+            <div>
+                <span class="label">التاريخ</span>
+                <strong>17 يونيو 2026</strong>
+            </div>
+            <div>
+                <span class="label">العملة</span>
+                <strong>درهم مغربي (MAD)</strong>
+            </div>
+            <div style="grid-column: 1 / -1;">
+                <span class="label">العميل</span>
+                <strong>جمعية افاانفلاس لمستغي الماء الشروب</strong>
+            </div>
+        </div>
+
+        <h2>وصف التطبيق</h2>
+        <p style="margin-bottom: 12px;">
+            <strong>تطبيق إدارة جمعية الماء</strong> هو حل برمجي متكامل يساعد جمعيات توزيع الماء على إدارة عملها اليومي بسهولة وفعالية.
+        </p>
+        <ul class="features">
+            <li><strong>إدارة المشتركين</strong> – تسجيل بيانات المشتركين (الاسم، الهاتف، رقم العداد، العنوان، المنطقة).</li>
+            <li><strong>قراءات العدادات</strong> – إدخال القراءات الشهرية وحساب الاستهلاك تلقائياً.</li>
+            <li><strong>إنشاء الفواتير</strong> – توليد فواتير الاستهلاك حسب شرائح التسعير المخصصة.</li>
+            <li><strong>متابعة الدفع</strong> – تتبع الفواتير المدفوعة وغير المدفوعة مع غرامات التأخير.</li>
+            <li><strong>الخزينة</strong> – تسجيل الإيرادات والمصاريف وحساب الرصيد المالي.</li>
+            <li><strong>تذاكر الصيانة</strong> – متابعة أعطال التسرب والعدادات المعطلة.</li>
+            <li><strong>التقارير الشهرية</strong> – تقارير مفصلة عن الاستهلاك والمداخيل والمصاريف.</li>
+            <li><strong>الطباعة والتصدير</strong> – طباعة الفواتير على A4 / A5 / POS 80mm</li>
+        </ul>
+
+        <h2>بيانات العرض</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>البند</th>
+                    <th>الوصف</th>
+                    <th style="text-align:left;">السعر (MAD)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>تطبيق سطح المكتب (Windows)</strong></td>
+                    <td>نسخة كاملة للتشغيل على الحاسوب</td>
+                    <td class="price">1600</td>
+                </tr>
+                <tr>
+                    <td><strong>تطبيق Android</strong></td>
+                    <td>غير مشمول في هذا العرض</td>
+                    <td class="price">0</td>
+                </tr>
+                <tr>
+                    <td><strong>طابعة حرارية POS</strong></td>
+                    <td>طابعة بلوتوث / USB 80mm لطباعة الفواتير</td>
+                    <td class="price">900</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="total-box">
+            <span>المجموع الإجمالي</span>
+            <span class="amount">2500 درهم</span>
+        </div>
+
+        <div class="notes">
+            <strong>ملاحظات:</strong>
+            <ul>
+                <li>التركيب والتكوين الأولي مجاني.</li>
+                <li>يشمل العرض دعماً فنياً لمدة شهر.</li>
+                <li>أي تعديلات خاصة خارج نطاق التطبيق القياسي تُقتب منفصلاً.</li>
+            </ul>
+        </div>
+
+        <div class="signatures">
+            <!-- <div>
+                <div class="line"></div>
+                <label>الموقع</label>
+            </div> -->
+            <!-- <div>
+                <div class="line"></div>
+                <label>التوقيع</label>
+            </div> -->
+            <div>
+                <div class="line"></div>
+                <label>الختم</label>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -85,14 +85,14 @@ getAllSubscribers:
 SELECT Subscriber.*, Zone.name AS zoneName 
 FROM Subscriber 
 LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
-ORDER BY Subscriber.fullName;
+ORDER BY Subscriber.meterNumber;
 
 getSubscribersByZone:
 SELECT Subscriber.*, Zone.name AS zoneName 
 FROM Subscriber 
 LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
 WHERE Subscriber.zoneId = ?
-ORDER BY Subscriber.fullName;
+ORDER BY Subscriber.meterNumber;
 
 searchSubscribers:
 SELECT Subscriber.*, Zone.name AS zoneName 
@@ -101,7 +101,7 @@ LEFT JOIN Zone ON Subscriber.zoneId = Zone.id
 WHERE Subscriber.fullName LIKE '%' || ? || '%' 
    OR Subscriber.meterNumber LIKE '%' || ? || '%'
    OR Subscriber.phone LIKE '%' || ? || '%'
-ORDER BY Subscriber.fullName;
+ORDER BY Subscriber.meterNumber;
 
 getSubscriberById:
 SELECT * FROM Subscriber WHERE id = ?;
